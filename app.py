@@ -33,14 +33,22 @@ def hello():
 
 @app.route(f"/{WEBHOOK_SECRET_PATH}", methods=["POST"])
 def webhook():
-    # Parse incoming update from Telegram
     update = Update.de_json(request.get_json(force=True), telegram_app.bot)
-
-    # Use event loop to run the coroutine WITHOUT closing the loop
-    loop = asyncio.get_event_loop()
-    # Run process_update coroutine until complete
+    
+    # Create a new event loop for this thread and set it
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    
+    # Initialize application once (if needed)
+    if not telegram_app.running:
+        loop.run_until_complete(telegram_app.initialize())
+    
+    # Process update with the new loop
     loop.run_until_complete(telegram_app.process_update(update))
-
+    
+    # Close the loop to clean up resources
+    loop.close()
+    
     return "ok"
 
 @app.route("/cron", methods=["GET"])
