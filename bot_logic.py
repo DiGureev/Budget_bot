@@ -1,119 +1,65 @@
-from telegram import Update, KeyboardButton, ReplyKeyboardMarkup
-from telegram.ext import ContextTypes
-from datetime import datetime
-from storage import get_chat_data, update_chat_data, delete_chat_data
+# bot_logic.py
 
-def is_valid_number(text):
-    try:
-        float(text)
-        return True
-    except ValueError:
-        return False
+from telegram import Update
+from telegram.ext import CallbackContext
+from storage import load_data, save_data, update_chat_data
 
-async def handle_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    now = datetime.now()
+def handle_start(update: Update, context: CallbackContext):
+    chat_id = str(update.message.chat_id)
+    data = load_data()
 
-    chat_data = get_chat_data(chat_id)
+    if chat_id in data:
+        update.message.reply_text("👋 Welcome back! Use /setbudget to update your monthly budget.")
+    else:
+        update_chat_data(chat_id, {
+            "state": "awaiting_budget",
+            "month": None,
+            "year": None,
+            "budget": 0,
+            "remaining": 0
+        })
+        update.message.reply_text("💰 How much money do you want to spend this month? Please send just the number.")
 
-    if chat_data and chat_data.get("month") == now.month and chat_data.get("year") == now.year:
-        await update.message.reply_text(
-            f"📅 This month's budget is already set to {chat_data['budget']}. Remaining: {chat_data['remaining']}.\n"
-            f"You can update it with /setbudget if needed."
-        )
-        return
+def handle_setbudget(update: Update, context: CallbackContext):
+    chat_id = str(update.message.chat_id)
+    update_chat_data(chat_id, {"state": "awaiting_budget"})
+    update.message.reply_text("🔁 OK. Send the new budget number.")
 
-    delete_chat_data(chat_id)
-    await update.message.reply_text("💰 How much money do you want to spend this month? Please send just the number.")
-
-    context.user_data["awaiting_budget"] = True
-
-async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
+def handle_text(update: Update, context: CallbackContext):
+    chat_id = str(update.message.chat_id)
     text = update.message.text.strip()
+    data = load_data()
+    chat_data = data.get(chat_id, {})
 
-    if not is_valid_number(text):
-        await update.message.reply_text("🚫 Please send only numbers (budget or spending).")
-        return
+    state = chat_data.get("state")
 
-    now = datetime.now()
-    raw_amount = float(text)
-    amount = int(raw_amount) if raw_amount.is_integer() else raw_amount
-
-    chat_data = get_chat_data(chat_id)
-
-    # If waiting for new budget setup
-    if context.user_data.get("awaiting_budget"):
-        context.user_data["proposed_budget"] = amount
-        context.user_data["awaiting_budget"] = False
-
-        confirm_buttons = [[KeyboardButton("Confirm")], [KeyboardButton("Change")]]
-        await update.message.reply_text(
-            f"✅ You want to set the monthly budget to {amount}.\nConfirm or Change?",
-            reply_markup=ReplyKeyboardMarkup(confirm_buttons, one_time_keyboard=True, resize_keyboard=True)
-        )
-        return
-
-    # If user is confirming or changing
-    if text.lower() == "confirm" and "proposed_budget" in context.user_data:
-        proposed = context.user_data["proposed_budget"]
-        new_data = {
-            "year": now.year,
-            "month": now.month,
-            "budget": proposed,
-            "spent": 0,
-            "remaining": proposed,
-            "confirmed": True
-        }
-        update_chat_data(chat_id, new_data)
-        await update.message.reply_text(f"🎉 Budget confirmed: {proposed}. Let's start tracking!", reply_markup=None)
-        context.user_data.clear()
-        return
-
-    if text.lower() == "change":
-        context.user_data["awaiting_budget"] = True
-        await update.message.reply_text("🔁 OK. Send the new budget number.")
-        return
-
-    # Spending logic
-    if not chat_data or chat_data.get("month") != now.month or chat_data.get("year") != now.year:
-        await update.message.reply_text("⚠️ No budget set for this month. Use /start to set one.")
-        return
-
-    if chat_data["remaining"] < amount:
-        await update.message.reply_text("❌ You don't have enough money to spend.")
-        return
-
-    chat_data["spent"] += amount
-    chat_data["remaining"] -= amount
-    update_chat_data(chat_id, chat_data)
-
-    await update.message.reply_text(
-        f"✅ {amount} recorded. Remaining: {chat_data['remaining']}"
-    )
-
-async def handle_setbudget(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    chat_id = update.effective_chat.id
-    now = datetime.now()
-
-    if len(context.args) != 1 or not is_valid_number(context.args[0]):
-        await update.message.reply_text("Usage: /setbudget <amount>")
-        return
-
-    new_budget = float(context.args[0])
-    chat_data = get_chat_data(chat_id)
-
-    if not chat_data or chat_data.get("month") != now.month or chat_data.get("year") != now.year:
-        chat_data = {
-            "year": now.year,
-            "month": now.month,
-            "spent": 0
-        }
-
-    chat_data["budget"] = new_budget
-    chat_data["remaining"] = new_budget - chat_data.get("spent", 0)
-    update_chat_data(chat_id, chat_data)
-
-    await update.message.reply_text(
-        f"🔧 Budget updated to {new_budget}. Spent: {chat_data['spent']}. Remaining: {chat_data['remaining']}"
-    )
+    if state == "awaiting_budget":
+        try:
+            budget = float(text)
+            chat_data["temp_budget"] = budget
+            chat_data["state"] = "awaiting_confirmation"
+            save_data(data)
+            update.message.reply_text(f"❓ You entered {budget}. Send 'confirm' to set this as your budget, or 'change' to enter a different number.")
+        except ValueError:
+            update.message.reply_text("❌ Please enter a valid number.")
+    elif state == "awaiting_confirmation":
+        if text.lower() == "confirm":
+            budget = chat_data["temp_budget"]
+            now = datetime.now()
+            chat_data.update({
+                "budget": budget,
+                "remaining": budget,
+                "month": now.month,
+                "year": now.year,
+                "state": None
+            })
+            save_data(data)
+            update.message.reply_text(f"✅ Budget of {budget} set for this month.")
+        elif text.lower() == "change":
+            chat_data["state"] = "awaiting_budget"
+            save_data(data)
+            update.message.reply_text("🔁 OK. Send the new budget number.")
+        else:
+            update.message.reply_text("❓ Send 'confirm' to confirm the budget, or 'change' to change it.")
+    else:
+        update.message.reply_text("❓ I didn't understand that. Use /start to begin or /setbudget to set your budget.")
