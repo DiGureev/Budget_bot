@@ -37,6 +37,7 @@ def hello():
 
 @app.route(f"/{WEBHOOK_SECRET_PATH}", methods=["POST"])
 def webhook():
+    global loop  # <-- move this to the very top of the function
     update = Update.de_json(request.get_json(force=True), telegram_app.bot)
     try:
         # Run update processing on the persistent event loop
@@ -44,7 +45,6 @@ def webhook():
     except RuntimeError as e:
         # If event loop closed accidentally, recreate it and retry
         logging.error(f"Event loop error: {e}. Recreating event loop.")
-        global loop
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.run_until_complete(telegram_app.process_update(update))
