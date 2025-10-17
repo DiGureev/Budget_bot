@@ -1,43 +1,49 @@
+import os
+import asyncio
 from flask import Flask, request
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from config import BOT_TOKEN, WEBHOOK_SECRET_PATH
 from bot_logic import handle_start, handle_text, handle_setbudget
-from storage import load_data, update_chat_data, save_data
+from storage import load_data, save_data, update_chat_data
 from datetime import datetime
-import asyncio
-
-import os
-
-BOT_TOKEN = os.getenv("BOT_TOKEN")
-WEBHOOK_SECRET_PATH = os.getenv("WEBHOOK_SECRET_PATH")
 
 app = Flask(__name__)
 
+# Build Telegram application
 telegram_app = Application.builder().token(BOT_TOKEN).build()
+
+# Register handlers
 telegram_app.add_handler(CommandHandler("start", handle_start))
 telegram_app.add_handler(CommandHandler("setbudget", handle_setbudget))
 telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
+
 
 @app.route('/')
 def hello():
     return "Hello, Family Budget Bot is running!"
 
+
 @app.route(f"/{WEBHOOK_SECRET_PATH}", methods=["POST"])
-def webhook():
+async def webhook():
     update = Update.de_json(request.get_json(force=True), telegram_app.bot)
-    asyncio.run(telegram_app.process_update(update))
+
+    # ✅ Properly initialize before processing update
+    if not telegram_app.running:
+        await telegram_app.initialize()
+
+    await telegram_app.process_update(update)
     return "ok"
+
 
 @app.route("/cron", methods=["GET"])
 def cron_reset():
-    """This route can be called daily via Render cron job."""
+    """Called daily by Render cron job to reset month if needed"""
     data = load_data()
     now = datetime.now()
 
     for chat_id, chat_data in list(data.items()):
-        # End month if not current
         if chat_data.get("month") != now.month or chat_data.get("year") != now.year:
-            # Notify end of month
             try:
                 telegram_app.bot.send_message(
                     chat_id=int(chat_id),
@@ -50,8 +56,8 @@ def cron_reset():
     save_data(data)
     return "Cron OK"
 
+
 if __name__ == "__main__":
-    print("Starting Flask app...")
-    port = int(os.environ.get("PORT", 5000)) 
+    port = int(os.environ.get("PORT", 5000))
+    print(f"Starting Flask app on port {port}")
     app.run(host="0.0.0.0", port=port, debug=True)
-    print("Flask app.run exited")
