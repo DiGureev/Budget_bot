@@ -1,11 +1,15 @@
 from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
-from config import BOT_TOKEN, WEBHOOK_SECRET_PATH
 from bot_logic import handle_start, handle_text, handle_setbudget
 from storage import load_data, update_chat_data, save_data
 from datetime import datetime
 import asyncio
+
+import os
+
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+WEBHOOK_SECRET_PATH = os.getenv("WEBHOOK_SECRET_PATH")
 
 app = Flask(__name__)
 
