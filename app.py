@@ -3,7 +3,7 @@ import asyncio
 import logging
 from flask import Flask, request
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters
+from telegram.ext import Dispatcher, CommandHandler, MessageHandler, filters
 from bot_logic import handle_start, handle_text, handle_setbudget
 from storage import load_data, save_data
 from datetime import datetime
@@ -14,7 +14,7 @@ WEBHOOK_SECRET_PATH = os.getenv("WEBHOOK_SECRET_PATH")
 app = Flask(__name__)
 
 # Build Telegram application
-telegram_app = Application.builder().token(BOT_TOKEN).build()
+telegram_app = Dispatcher.builder().token(BOT_TOKEN).build()
 
 # Register handlers
 telegram_app.add_handler(CommandHandler("start", handle_start))
