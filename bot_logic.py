@@ -37,7 +37,9 @@ async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
         return
 
     now = datetime.now()
-    amount = float(text)
+    raw_amount = float(text)
+    amount = int(raw_amount) if raw_amount.is_integer() else raw_amount
+
     chat_data = get_chat_data(chat_id)
 
     # If waiting for new budget setup
