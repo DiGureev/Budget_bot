@@ -27,14 +27,17 @@ def hello():
 
 
 @app.route(f"/{WEBHOOK_SECRET_PATH}", methods=["POST"])
-async def webhook():
+def webhook():
+    # Parse incoming update from Telegram
     update = Update.de_json(request.get_json(force=True), telegram_app.bot)
-
-    # ✅ Properly initialize before processing update
+    
+    # Initialize the application if not already initialized
     if not telegram_app.running:
-        await telegram_app.initialize()
-
-    await telegram_app.process_update(update)
+        asyncio.run(telegram_app.initialize())
+    
+    # Process the update inside asyncio.run to handle async code synchronously
+    asyncio.run(telegram_app.process_update(update))
+    
     return "ok"
 
 
