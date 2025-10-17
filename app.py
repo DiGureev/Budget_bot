@@ -1,5 +1,6 @@
 import os
 import asyncio
+import logging
 from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, MessageHandler, filters
@@ -20,12 +21,15 @@ telegram_app.add_handler(CommandHandler("start", handle_start))
 telegram_app.add_handler(CommandHandler("setbudget", handle_setbudget))
 telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_text))
 
-# Initialize the telegram_app once before handling requests
+# Initialize telegram_app once at startup
 async def initialize_app():
     await telegram_app.initialize()
 
-# Run initialization before starting Flask app
 asyncio.run(initialize_app())
+
+# Create one persistent event loop for the Flask app to use
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 
 @app.route('/')
 def hello():
@@ -34,21 +38,19 @@ def hello():
 @app.route(f"/{WEBHOOK_SECRET_PATH}", methods=["POST"])
 def webhook():
     update = Update.de_json(request.get_json(force=True), telegram_app.bot)
-    
-    # Create a new event loop for this thread and set it
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    
-    # Initialize application once (if needed)
-    if not telegram_app.running:
-        loop.run_until_complete(telegram_app.initialize())
-    
-    # Process update with the new loop
-    loop.run_until_complete(telegram_app.process_update(update))
-    
-    # Close the loop to clean up resources
-    loop.close()
-    
+    try:
+        # Run update processing on the persistent event loop
+        loop.run_until_complete(telegram_app.process_update(update))
+    except RuntimeError as e:
+        # If event loop closed accidentally, recreate it and retry
+        logging.error(f"Event loop error: {e}. Recreating event loop.")
+        global loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(telegram_app.process_update(update))
+    except Exception as e:
+        logging.error(f"Unexpected error in webhook: {e}")
+        raise e
     return "ok"
 
 @app.route("/cron", methods=["GET"])
@@ -65,7 +67,7 @@ def cron_reset():
                     text=f"📅 Month ended. Remaining: {chat_data['remaining']}.\nUse /start to begin new month."
                 )
             except Exception as e:
-                print(f"Error notifying {chat_id}: {e}")
+                logging.error(f"Error notifying {chat_id}: {e}")
             del data[chat_id]
 
     save_data(data)
