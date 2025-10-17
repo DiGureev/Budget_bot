@@ -39,10 +39,14 @@ def handle_text(update: Update, context: CallbackContext):
             budget = float(text)
             chat_data["temp_budget"] = budget
             chat_data["state"] = "awaiting_confirmation"
+            data[chat_id] = chat_data
             save_data(data)
-            update.message.reply_text(f"❓ You entered {budget}. Send 'confirm' to set this as your budget, or 'change' to enter a different number.")
+            update.message.reply_text(
+                f"❓ You entered {budget}. Send 'confirm' to set this as your budget, or 'change' to enter a different number."
+            )
         except ValueError:
             update.message.reply_text("❌ Please enter a valid number.")
+
     elif state == "awaiting_confirmation":
         if text.lower() == "confirm":
             budget = chat_data["temp_budget"]
@@ -52,15 +56,44 @@ def handle_text(update: Update, context: CallbackContext):
                 "remaining": budget,
                 "month": now.month,
                 "year": now.year,
-                "state": None
+                "state": None,
+                "expenses": []
             })
+            data[chat_id] = chat_data
             save_data(data)
             update.message.reply_text(f"✅ Budget of {budget} set for this month.")
         elif text.lower() == "change":
             chat_data["state"] = "awaiting_budget"
+            data[chat_id] = chat_data
             save_data(data)
             update.message.reply_text("🔁 OK. Send the new budget number.")
         else:
             update.message.reply_text("❓ Send 'confirm' to confirm the budget, or 'change' to change it.")
+
     else:
-        update.message.reply_text("❓ I didn't understand that. Use /start to begin or /setbudget to set your budget.")
+        # ✅ NEW: Handle expense input if text is a number
+        try:
+            expense = float(text)
+            if "budget" not in chat_data or "remaining" not in chat_data:
+                update.message.reply_text("⚠️ You haven't set a budget yet. Use /setbudget to start.")
+                return
+
+            # Subtract expense
+            chat_data["remaining"] -= expense
+
+            # Optional: add to expense history
+            if "expenses" not in chat_data:
+                chat_data["expenses"] = []
+
+            chat_data["expenses"].append({
+                "amount": expense,
+                "timestamp": datetime.now().isoformat()
+            })
+
+            data[chat_id] = chat_data
+            save_data(data)
+
+            update.message.reply_text(f"💸 Spent {expense}. Remaining budget: {chat_data['remaining']:.2f}")
+
+        except ValueError:
+            update.message.reply_text("❓ I didn't understand that. Use /start to begin or /setbudget to set your budget.")
