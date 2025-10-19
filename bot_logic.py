@@ -206,28 +206,6 @@ def handle_categories_callback(update: Update, context: CallbackContext):
         query.edit_message_text("💸 Please enter the amount to record for this category.")
     
     elif data.startswith("delete_"):
-        category_id = data.split("_", 1)[1]
-        category = get_category(category_id)
-        
-        if not category or category.chat_id != chat_id:
-            query.edit_message_text("❌ Invalid category.")
-            return
-        
-        # Confirmation buttons
-        keyboard = [
-            [
-                InlineKeyboardButton("✅ Yes, Delete", callback_data=f"confirm_delete_{category_id}"),
-                InlineKeyboardButton("❌ Cancel", callback_data="back_to_categories")
-            ]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        
-        query.edit_message_text(
-            f"⚠️ Are you sure you want to delete '{category.name}'?\n\n💰 Total spent in this category: {category.total_spent:.2f}\n\nThis cannot be undone!",
-            reply_markup=reply_markup
-        )
-    
-    elif data.startswith("confirm_delete_"):
         category_id = data.split("_", 2)[2]
         category = get_category(category_id)
         
