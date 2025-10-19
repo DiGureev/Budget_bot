@@ -1,15 +1,14 @@
-# bot_logic.py
-
-from telegram import Update
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
-from storage import load_data, save_data, update_chat_data
+
+from storage import get_chat_data, update_chat_data
 from datetime import datetime
 
 def handle_start(update: Update, context: CallbackContext):
     chat_id = str(update.message.chat_id)
-    data = load_data()
+    chat_data = get_chat_data(chat_id)
 
-    if chat_id in data:
+    if chat_data:
         update.message.reply_text("👋 Welcome back! Use /setbudget to update your monthly budget.")
     else:
         update_chat_data(chat_id, {
@@ -29,71 +28,87 @@ def handle_setbudget(update: Update, context: CallbackContext):
 def handle_text(update: Update, context: CallbackContext):
     chat_id = str(update.message.chat_id)
     text = update.message.text.strip()
-    data = load_data()
-    chat_data = data.get(chat_id, {})
+    chat_data = get_chat_data(chat_id)
+
+    if not chat_data:
+        update.message.reply_text("⚠️ Please start with /start or /setbudget to set your budget.")
+        return
 
     state = chat_data.get("state")
 
     if state == "awaiting_budget":
         try:
             budget = float(text)
-            chat_data["temp_budget"] = budget
-            chat_data["state"] = "awaiting_confirmation"
-            data[chat_id] = chat_data
-            save_data(data)
+            update_chat_data(chat_id, {
+                "budget": budget,
+                "remaining": budget,
+                "state": "awaiting_confirmation"
+            })
+
+            keyboard = [
+                [
+                    InlineKeyboardButton("✅ Confirm", callback_data='confirm_budget'),
+                    InlineKeyboardButton("✏️ Change", callback_data='change_budget'),
+                ]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+
             update.message.reply_text(
-                f"❓ You entered {budget}. Send 'confirm' to set this as your budget, or 'change' to enter a different number."
+                f"❓ You entered {budget}. Please confirm or change:",
+                reply_markup=reply_markup
             )
+
         except ValueError:
             update.message.reply_text("❌ Please enter a valid number.")
 
-    elif state == "awaiting_confirmation":
-        if text.lower() == "confirm":
-            budget = chat_data["temp_budget"]
-            now = datetime.now()
-            chat_data.update({
-                "budget": budget,
-                "remaining": budget,
-                "month": now.month,
-                "year": now.year,
-                "state": None,
-                "expenses": []
-            })
-            data[chat_id] = chat_data
-            save_data(data)
-            update.message.reply_text(f"✅ Budget of {budget} set for this month.")
-        elif text.lower() == "change":
-            chat_data["state"] = "awaiting_budget"
-            data[chat_id] = chat_data
-            save_data(data)
-            update.message.reply_text("🔁 OK. Send the new budget number.")
-        else:
-            update.message.reply_text("❓ Send 'confirm' to confirm the budget, or 'change' to change it.")
-
     else:
-        # ✅ NEW: Handle expense input if text is a number
         try:
             expense = float(text)
-            if "budget" not in chat_data or "remaining" not in chat_data:
+            budget = chat_data.get("budget", 0)
+            remaining = chat_data.get("remaining", 0)
+
+            if budget == 0:
                 update.message.reply_text("⚠️ You haven't set a budget yet. Use /setbudget to start.")
                 return
 
-            # Subtract expense
-            chat_data["remaining"] -= expense
+            if expense > 0:
+                remaining -= expense
+                update.message.reply_text(f"💸 Spent {expense}. Remaining budget: {remaining:.2f}")
+            elif expense < 0:
+                remaining += abs(expense)
+                update.message.reply_text(f"🔄 Refund of {abs(expense)} added. Remaining budget: {remaining:.2f}")
+            else:
+                update.message.reply_text("⚠️ Please enter a non-zero number.")
+                return
 
-            # Optional: add to expense history
-            if "expenses" not in chat_data:
-                chat_data["expenses"] = []
-
-            chat_data["expenses"].append({
-                "amount": expense,
-                "timestamp": datetime.now().isoformat()
-            })
-
-            data[chat_id] = chat_data
-            save_data(data)
-
-            update.message.reply_text(f"💸 Spent {expense}. Remaining budget: {chat_data['remaining']:.2f}")
+            update_chat_data(chat_id, {"remaining": remaining})
 
         except ValueError:
             update.message.reply_text("❓ I didn't understand that. Use /start to begin or /setbudget to set your budget.")
+
+def handle_budget_callback(update: Update, context: CallbackContext):
+    query = update.callback_query
+    chat_id = str(query.message.chat_id)
+    chat_data = get_chat_data(chat_id)
+
+    query.answer()
+
+    if query.data == "confirm_budget":
+        now = datetime.now()
+        update_chat_data(chat_id, {
+            "month": now.month,
+            "year": now.year,
+            "state": None,
+        })
+        query.edit_message_text(f"✅ Budget of {chat_data.get('budget')} set for this month.")
+
+    elif query.data == "change_budget":
+        update_chat_data(chat_id, {
+            "budget": 0,
+            "remaining": 0,
+            "state": "awaiting_budget",
+        })
+        query.edit_message_text("🔁 OK. Send the new budget number.")
+
+    else:
+        query.answer(text="Unknown action.")

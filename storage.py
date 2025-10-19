@@ -1,29 +1,19 @@
-import json
-import os
-
-DATA_FILE = "data.json"
-
-def load_data():
-    if not os.path.exists(DATA_FILE):
-        return {}
-    with open(DATA_FILE, "r") as f:
-        return json.load(f)
-
-def save_data(data):
-    with open(DATA_FILE, "w") as f:
-        json.dump(data, f, indent=2)
+from models import db, ChatData
+from datetime import datetime
 
 def get_chat_data(chat_id):
-    data = load_data()
-    return data.get(str(chat_id), None)
+    chat = ChatData.query.get(str(chat_id))
+    return chat
 
-def update_chat_data(chat_id, chat_data):
-    data = load_data()
-    data[str(chat_id)] = chat_data
-    save_data(data)
+def update_chat_data(chat_id, updates: dict):
+    chat_id = str(chat_id)
+    chat = ChatData.query.get(chat_id)
+    if not chat:
+        chat = ChatData(chat_id=chat_id)
+        db.session.add(chat)
 
-def delete_chat_data(chat_id):
-    data = load_data()
-    if str(chat_id) in data:
-        del data[str(chat_id)]
-        save_data(data)
+    for key, value in updates.items():
+        setattr(chat, key, value)
+
+    db.session.commit()
+    return chat
