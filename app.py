@@ -55,18 +55,43 @@ def cron_reset():
     for chat in chats:
         if chat.month != now.month or chat.year != now.year:
             try:
+                # Calculate totals
+                total_spent = chat.budget - chat.remaining
+                categorized_spent = sum(category.total_spent for category in chat.categories)
+                uncategorized_spent = total_spent - categorized_spent
+                
+                # Build category breakdown
+                category_text = ""
+                
+                if chat.categories or uncategorized_spent > 0:
+                    category_text = "\n\n📊 Spending by category:"
+                    
+                    for category in chat.categories:
+                        if category.total_spent > 0:
+                            category_text += f"\n• {category.name}: {category.total_spent:.2f}"
+                    
+                    if uncategorized_spent > 0:
+                        category_text += f"\n• Uncategorized: {uncategorized_spent:.2f}"
+                
+                # Send summary message
                 bot.send_message(
                     chat_id=int(chat.chat_id),
-                    text=f"📅 Month ended. Remaining: {chat.remaining}.\nUse /start to begin new month."
+                    text=f"📅 Month ended!\n\n💰 Budget: {chat.budget:.2f}\n💸 Total spent: {total_spent:.2f}\n💵 Remaining: {chat.remaining:.2f}{category_text}\n\n🔄 Budget reset for new month. Use /setbudget to set your new budget."
                 )
             except Exception as e:
                 print(f"Error notifying {chat.chat_id}: {e}")
-            db.session.delete(chat)
-    db.session.commit()
+            
+            # Reset totals
+            chat.remaining = chat.budget
+            chat.month = now.month
+            chat.year = now.year
+            
+            # Reset category spending to 0
+            for category in chat.categories:
+                category.total_spent = 0.0
     
+    db.session.commit()
     return "Reset complete"
-
-
 
 @app.route("/set_webhook", methods=["GET"])
 def set_webhook():
