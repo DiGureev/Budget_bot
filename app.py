@@ -33,9 +33,8 @@ dispatcher.add_handler(CommandHandler("start", handle_start))
 dispatcher.add_handler(CommandHandler("setbudget", handle_setbudget))
 dispatcher.add_handler(CommandHandler("categories", handle_categories))
 dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_text))
-dispatcher.add_handler(CallbackQueryHandler(handle_budget_callback))
-dispatcher.add_handler(CallbackQueryHandler(handle_categories_callback))
-
+dispatcher.add_handler(CallbackQueryHandler(handle_budget_callback, pattern='^(confirm_budget|change_budget)$'))
+dispatcher.add_handler(CallbackQueryHandler(handle_categories_callback, pattern='^(add_category|category_.*)$'))
 
 @app.route("/")
 def home():
