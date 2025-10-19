@@ -1,4 +1,5 @@
 from models import db, ChatData, ExpenseCategory
+import uuid
 
 def get_chat_data(chat_id):
     chat = ChatData.query.get(str(chat_id))
@@ -25,11 +26,16 @@ def get_category(category_id: str):
     category = ExpenseCategory.query.get(category_id)
     return category
 
-def add_category(name: str, chat_id: str):
-    new_category = ExpenseCategory(name=name, chat_id=chat_id, total_spent=0)
-    db.session.add(new_category)
+def add_category(name, chat_id):
+    category = ExpenseCategory(
+        id=str(uuid.uuid4()),  # ← Add this line to generate a unique ID
+        name=name,
+        chat_id=chat_id,
+        total_spent=0.0
+    )
+    db.session.add(category)
     db.session.commit()
-    return new_category
+    return category
 
 def update_category(category_id: str, updates: dict):
     category = ExpenseCategory.query.get(category_id)
