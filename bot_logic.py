@@ -88,7 +88,7 @@ def handle_text(update: Update, context: CallbackContext):
                     new_total = category.total_spent - refund    # subtract refund from total spent
                     remaining += refund                           # add refund back to remaining budget
                     update.message.reply_text(
-                        f"🔄 Refund of {refund:.2f} applied to '{category.name}'. Remaining: {remaining:.2f}")
+                    f"🔄 Refund of {refund:.2f} applied to '{category.name}'.\n💰 Category total: {new_total:.2f}\n💵 Remaining budget: {remaining:.2f}")
 
                     
                 update_chat_data(chat_id, {"remaining": remaining, "state": None})
