@@ -121,7 +121,7 @@ def handle_text(update: Update, context: CallbackContext):
             update_chat_data(chat_id, {"remaining": remaining})
 
         except ValueError:
-            update.message.reply_text("❓ I didn't understand that. Use /start to begin or /setbudget to set your budget.")
+            update.message.reply_text("⚠️ Please enter a number or use commands /start or /setbudget or /categories")
 
 def handle_budget_callback(update: Update, context: CallbackContext):
     query = update.callback_query
