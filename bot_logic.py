@@ -1,8 +1,7 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
-import re
 
-from storage import get_chat_data, update_chat_data, get_categories, get_category, add_category, update_category
+from storage import get_chat_data, update_chat_data, get_categories, get_category, add_category, update_category, delete_category
 from datetime import datetime
 
 def handle_start(update: Update, context: CallbackContext):
@@ -66,9 +65,7 @@ def handle_text(update: Update, context: CallbackContext):
         update_chat_data(chat_id, {"state": None})
         update.message.reply_text(f"Category '{text}' added.")
     elif state and state.startswith("awaiting_expense_for_category_"):
-        match = re.match(r"awaiting_expense_for_category_(\d+)", state)
-        if match:
-            category_id = str(match.group(1))
+            category_id = state.replace("awaiting_expense_for_category_", "")
             try:
                 amount = float(text)
                 chat_data = get_chat_data(chat_id)
@@ -181,11 +178,76 @@ def handle_categories_callback(update: Update, context: CallbackContext):
         query.edit_message_text("📝 Please send the name of the new category.")
 
     elif data.startswith("category_"):
-        category_id = data.split("_")[1]  # Extract the category ID from the button
+        category_id = data.split("_", 1)[1]  # Extract the category ID
+        category = get_category(category_id)
+        
+        if not category or category.chat_id != chat_id:
+            query.edit_message_text("❌ Invalid category.")
+            return
+        
+        # Show options: add expense or delete
+        keyboard = [
+            [InlineKeyboardButton("💸 Add Expense", callback_data=f"expense_{category_id}")],
+            [InlineKeyboardButton("🗑️ Delete Category", callback_data=f"delete_{category_id}")],
+            [InlineKeyboardButton("⬅️ Back", callback_data="back_to_categories")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        query.edit_message_text(
+            f"📊 Category: {category.name}\n💰 Total spent: {category.total_spent:.2f}\n\nWhat would you like to do?",
+            reply_markup=reply_markup
+        )
+    
+    elif data.startswith("expense_"):
+        category_id = data.split("_", 1)[1]
         update_chat_data(chat_id, {
             "state": f"awaiting_expense_for_category_{category_id}"
         })
         query.edit_message_text("💸 Please enter the amount to record for this category.")
-
-
+    
+    elif data.startswith("delete_"):
+        category_id = data.split("_", 1)[1]
+        category = get_category(category_id)
+        
+        if not category or category.chat_id != chat_id:
+            query.edit_message_text("❌ Invalid category.")
+            return
+        
+        # Confirmation buttons
+        keyboard = [
+            [
+                InlineKeyboardButton("✅ Yes, Delete", callback_data=f"confirm_delete_{category_id}"),
+                InlineKeyboardButton("❌ Cancel", callback_data="back_to_categories")
+            ]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        query.edit_message_text(
+            f"⚠️ Are you sure you want to delete '{category.name}'?\n\n💰 Total spent in this category: {category.total_spent:.2f}\n\nThis cannot be undone!",
+            reply_markup=reply_markup
+        )
+    
+    elif data.startswith("confirm_delete_"):
+        category_id = data.split("_", 2)[2]
+        category = get_category(category_id)
+        
+        if category and category.chat_id == chat_id:
+            category_name = category.name
+            delete_category(category_id)
+            query.edit_message_text(f"🗑️ Category '{category_name}' has been deleted.")
+        else:
+            query.edit_message_text("❌ Category not found.")
+    
+    elif data == "back_to_categories":
+        # Show categories list again
+        categories = get_categories(chat_id)
+        
+        keyboard = [
+            [InlineKeyboardButton(f"{c.name} - {c.total_spent:.2f}", callback_data=f"category_{c.id}")]
+            for c in categories
+        ]
+        keyboard.append([InlineKeyboardButton("➕ Add category", callback_data="add_category")])
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        
+        query.edit_message_text("📊 Your categories and totals:", reply_markup=reply_markup)
 

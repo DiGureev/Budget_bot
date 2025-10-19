@@ -47,3 +47,11 @@ def update_category(category_id: str, updates: dict):
 
     db.session.commit()
     return category
+
+def delete_category(category_id):
+    category = ExpenseCategory.query.get(category_id)
+    if category:
+        db.session.delete(category)
+        db.session.commit()
+        return True
+    return False
