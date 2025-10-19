@@ -34,7 +34,7 @@ def handle_text(update: Update, context: CallbackContext):
         update.message.reply_text("⚠️ Please start with /start or /setbudget to set your budget.")
         return
 
-    state = chat_data.get("state")
+    state = chat_data.state
 
     if state == "awaiting_budget":
         try:
@@ -64,8 +64,8 @@ def handle_text(update: Update, context: CallbackContext):
     else:
         try:
             expense = float(text)
-            budget = chat_data.get("budget", 0)
-            remaining = chat_data.get("remaining", 0)
+            budget = chat_data.budget
+            remaining = chat_data.remaining
 
             if budget == 0:
                 update.message.reply_text("⚠️ You haven't set a budget yet. Use /setbudget to start.")
@@ -100,7 +100,7 @@ def handle_budget_callback(update: Update, context: CallbackContext):
             "year": now.year,
             "state": None,
         })
-        query.edit_message_text(f"✅ Budget of {chat_data.get('budget')} set for this month.")
+        query.edit_message_text(f"✅ Budget of {chat_data.budget} set for this month.")
 
     elif query.data == "change_budget":
         update_chat_data(chat_id, {
