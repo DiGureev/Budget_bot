@@ -1,7 +1,8 @@
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import CallbackContext
+import re
 
-from storage import get_chat_data, update_chat_data
+from storage import get_chat_data, update_chat_data, get_categories, get_category, add_category, update_category
 from datetime import datetime
 
 def handle_start(update: Update, context: CallbackContext):
@@ -60,6 +61,45 @@ def handle_text(update: Update, context: CallbackContext):
 
         except ValueError:
             update.message.reply_text("❌ Please enter a valid number.")
+    elif state == "waiting for category":
+        add_category(text, chat_id)
+        update_chat_data(chat_id, {"state": None})
+        update.message.reply_text(f"Category '{text}' added.")
+    elif state and state.startswith("awaiting_expense_for_category_"):
+        match = re.match(r"awaiting_expense_for_category_(\d+)", state)
+        if match:
+            category_id = str(match.group(1))
+            try:
+                amount = float(text)
+                chat_data = get_chat_data(chat_id)
+                category = get_category(category_id)
+                if not category or category.chat_id != chat_id:
+                    update.message.reply_text("❌ Invalid category.")
+                    return
+
+                # Update budget and category total
+                remaining = chat_data.remaining
+                new_total = category.total_spent
+
+                if amount >= 0:
+                    new_total = category.total_spent + amount     # add spending
+                    remaining -= amount                           # subtract from remaining budget
+                    update.message.reply_text(
+                        f"✅ {amount:.2f} added to '{category.name}'. Remaining budget: {remaining:.2f}")
+                else:
+                    refund = abs(amount)
+                    new_total = category.total_spent - refund    # subtract refund from total spent
+                    remaining += refund                           # add refund back to remaining budget
+                    update.message.reply_text(
+                        f"🔄 Refund of {refund:.2f} applied to '{category.name}'. Remaining: {remaining:.2f}")
+
+                    
+                update_chat_data(chat_id, {"remaining": remaining, "state": None})
+                update_category(category_id, {"total_spent": new_total})
+
+
+            except ValueError:
+                update.message.reply_text("❌ Please enter a valid number.")
 
     else:
         try:
@@ -112,3 +152,40 @@ def handle_budget_callback(update: Update, context: CallbackContext):
 
     else:
         query.answer(text="Unknown action.")
+
+def handle_categories(update: Update, context: CallbackContext):
+    chat_id = str(update.message.chat_id)
+
+    categories = get_categories(chat_id)
+
+    keyboard = [
+        [InlineKeyboardButton(f"{c.name} - {c.total_spent:.2f}", callback_data=f"category_{c.id}")]
+        for c in categories
+    ]
+
+    keyboard.append([InlineKeyboardButton("➕ Add category", callback_data="add_category")])
+    reply_markup = InlineKeyboardMarkup(keyboard)
+
+    update.message.reply_text("📊 Your categories and totals:", reply_markup=reply_markup)
+
+
+def handle_categories_callback(update: Update, context: CallbackContext):
+    query = update.callback_query
+    chat_id = str(query.message.chat_id)
+    data = query.data
+
+    query.answer()
+
+    if data == "add_category":
+        update_chat_data(chat_id, {"state": "waiting for category"})
+        query.edit_message_text("📝 Please send the name of the new category.")
+
+    elif data.startswith("category_"):
+        category_id = data.split("_")[1]  # Extract the category ID from the button
+        update_chat_data(chat_id, {
+            "state": f"awaiting_expense_for_category_{category_id}"
+        })
+        query.edit_message_text("💸 Please enter the amount to record for this category.")
+
+
+

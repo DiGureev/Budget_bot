@@ -4,7 +4,7 @@ from flask import Flask, request
 from telegram import Bot, Update
 from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters, CallbackQueryHandler
 
-from bot_logic import handle_start, handle_text, handle_setbudget, handle_budget_callback
+from bot_logic import handle_start, handle_text, handle_setbudget, handle_budget_callback, handle_categories, handle_categories_callback
 from datetime import datetime
 
 from dotenv import load_dotenv
@@ -31,8 +31,10 @@ dispatcher = Dispatcher(bot=bot, update_queue=None, workers=0, use_context=True)
 # Register handlers
 dispatcher.add_handler(CommandHandler("start", handle_start))
 dispatcher.add_handler(CommandHandler("setbudget", handle_setbudget))
+dispatcher.add_handler(CommandHandler("categories", handle_categories))
 dispatcher.add_handler(MessageHandler(Filters.text & ~Filters.command, handle_text))
 dispatcher.add_handler(CallbackQueryHandler(handle_budget_callback))
+dispatcher.add_handler(CallbackQueryHandler(handle_categories_callback))
 
 
 @app.route("/")
