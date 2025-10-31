@@ -54,6 +54,9 @@ def webhook():
 def cron_reset():
     now = datetime.now()
     chats = ChatData.query.all()
+
+    print(now)
+    print(chats)
     
     for chat in chats:
         if chat.month != now.month or chat.year != now.year:
@@ -85,7 +88,8 @@ def cron_reset():
                 print(f"Error notifying {chat.chat_id}: {e}")
             
             # Reset totals
-            chat.remaining = chat.budget
+            chat.budget = None
+            chat.remaining = None
             chat.month = now.month
             chat.year = now.year
             
