@@ -62,7 +62,7 @@ def cron_reset():
                 # Build category breakdown
                 category_text = ""
                 
-                if chat.categories or uncategorized_spent > 0:
+                if categories or uncategorized_spent > 0:
                     category_text = "\n\n📊 Spending by category:"
                     
                     for category in categories:
