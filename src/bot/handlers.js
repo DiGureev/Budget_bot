@@ -1,0 +1,830 @@
+import { isValidEmail } from '../utils/validators.js';
+import { normalizeCategoryName } from '../utils/normalize.js';
+import { parseAmount } from '../services/amountParser.js';
+import { submitEmailToKit } from '../services/kitService.js';
+import {
+  countActiveCategories,
+  createCategory,
+  getActiveCategories,
+  getCategoryById,
+  applyAmount,
+  archiveCategory,
+  renameCategory,
+  updateCategoryBudget,
+  resetCategorySpend,
+  convertAnnualToMonthly,
+} from '../services/categoryService.js';
+import {
+  setDefaultCategory,
+  clearDefaultCategory,
+} from '../services/userService.js';
+import {
+    getCategoryButtonLabel,
+    categoriesReplyKeyboard,
+    categoryActionsKeyboard,
+    confirmCategoryTypeKeyboard,
+    defaultChoiceKeyboard,
+    editCategoryKeyboard,
+    confirmRemoveKeyboard,
+  } from './keyboards.js';
+import {
+  formatCategoryDetails,
+  formatMonthlyHistory,
+  formatAnnualHistory,
+  formatRemovePrompt,
+  formatMoney,
+} from './messages.js';
+
+function categoryKeyboardOptions(categories, user) {
+    return {
+      reply_markup: categoriesReplyKeyboard(categories, user),
+    };
+  }
+
+export async function handleStart(bot, msg, user) {
+    if (!user.onboarding.emailSubmitted) {
+        await bot.sendMessage(
+            msg.chat.id,
+          `<b>Welcome to the Spending Mirror Bot!</b>\n\nOur goal is to help you manage your monthly and annual spending. Please enter your <b>email</b> to create an account.`,
+            { parse_mode: 'HTML' }
+          );
+        return;
+      }
+
+  const categories = await getActiveCategories(user.telegramUserId);
+
+  if (categories.length === 0) {
+    await bot.sendMessage(
+      msg.chat.id,
+      `Account is created 🎉
+
+Next step is to create categories that you want to track. You can add up to 8 categories. 🚀`,
+      categoryKeyboardOptions(categories, user)
+    );
+    return;
+  }
+
+  await bot.sendMessage(
+    msg.chat.id,
+    ' ',
+    categoryKeyboardOptions(categories, user)
+  );
+}
+
+export async function handleText(bot, msg, user) {
+  const text = (msg.text || '').trim();
+  const step = user.state?.step;
+
+  const activeCategories = await getActiveCategories(user.telegramUserId);
+
+  if (step === 'awaiting_email') {
+    const email = text.trim();
+
+    if (!isValidEmail(email)) {
+      await bot.sendMessage(msg.chat.id, 'Please enter a valid email address.');
+      return;
+    }
+
+    const result = await submitEmailToKit(email, user);
+
+    if (!result.ok) {
+      await bot.sendMessage(
+        msg.chat.id,
+        'Could not save your email. Please try again.'
+      );
+      return;
+    }
+
+    user.onboarding.emailSubmitted = true;
+    user.onboarding.completed = true;
+    user.state = { step: null, payload: {} };
+    await user.save();
+
+    const categories = await getActiveCategories(user.telegramUserId);
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `Account is created 🎉
+
+Next step is to create categories that you want to track. You can add up to 8 categories. 🚀`,
+      categoryKeyboardOptions(categories, user)
+    );
+    return;
+  }
+
+  if (step === 'awaiting_default_category_confirm') {
+    await bot.sendMessage(
+      msg.chat.id,
+      'Please choose Yes or No using the buttons below.'
+    );
+    return;
+  }
+
+  if (text === '➕ Add category') {
+    const count = await countActiveCategories(user.telegramUserId);
+
+    if (count >= 8) {
+      await bot.sendMessage(
+        msg.chat.id,
+        'You can add up to 8 categories.',
+        categoryKeyboardOptions(activeCategories, user)
+      );
+      return;
+    }
+
+    user.state = { step: 'awaiting_category_name', payload: {} };
+    await user.save();
+
+    await bot.sendMessage(
+      msg.chat.id,
+      'Enter a name for your new category. Feel free to include emojis. You will be able to edit it later.',
+      {
+        reply_markup: {
+          remove_keyboard: true,
+        },
+      }
+    );
+    return;
+  }
+
+  const selectedCategory = activeCategories.find(
+    (category) => text === getCategoryButtonLabel(category, user)
+  );
+  
+  if (selectedCategory) {
+    user.state = {
+      step: 'awaiting_category_amount',
+      payload: { categoryId: String(selectedCategory._id) },
+    };
+    await user.save();
+  
+    await bot.sendMessage(
+      msg.chat.id,
+      formatCategoryDetails(selectedCategory),
+      {
+        reply_markup: categoryActionsKeyboard(selectedCategory),
+      }
+    );
+    return;
+  }
+
+  if (step === 'awaiting_category_name') {
+    const count = await countActiveCategories(user.telegramUserId);
+  
+    if (count >= 8) {
+      user.state = { step: null, payload: {} };
+      await user.save();
+  
+      const categories = await getActiveCategories(user.telegramUserId);
+  
+      await bot.sendMessage(
+        msg.chat.id,
+        'You can add up to 8 categories.',
+        categoryKeyboardOptions(categories, user)
+      );
+      return;
+    }
+  
+    const normalizedName = normalizeCategoryName(text);
+  
+    const existing = activeCategories.some(
+      (category) => category.name === normalizedName
+    );
+  
+    if (existing) {
+      await bot.sendMessage(
+        msg.chat.id,
+        'A category with this exact name already exists. Please choose another name.'
+      );
+      return;
+    }
+  
+    user.state = {
+      step: 'awaiting_category_type_choice',
+      payload: {
+        name: normalizedName,
+      },
+    };
+    await user.save();
+  
+    await bot.sendMessage(
+      msg.chat.id,
+      `Is it an annual category or a monthly one?\n\nIf it's <b>monthly</b>, we will track your spending throughout the month, and it will reset on the first day of every month.\n\nFor an <b>annual</b> category, we will track the sum you set for this category throughout the year.`,
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          inline_keyboard: [
+            [
+              { text: 'Annual', callback_data: 'cat_type:annual' },
+              { text: 'Monthly', callback_data: 'cat_type:monthly' },
+            ],
+          ],
+          remove_keyboard: true,
+        },
+      }
+    );
+    return;
+  }
+
+  if (step === 'awaiting_category_budget') {
+    const amount = parseAmount(text);
+  
+    if (amount === null || amount < 0) {
+      await bot.sendMessage(
+        msg.chat.id,
+        'Please enter a valid positive budget.'
+      );
+      return;
+    }
+  
+    const { name, type } = user.state.payload;
+  
+    try {
+      const category = await createCategory({
+        userId: user.telegramUserId,
+        name,
+        type,
+        budget: amount,
+      });
+  
+      if (type === 'monthly') {
+        user.state = {
+          step: 'awaiting_default_category_confirm',
+          payload: { categoryId: String(category._id) },
+        };
+        await user.save();
+  
+        await bot.sendMessage(
+          msg.chat.id,
+          `The "${category.name}" category is saved with a monthly budget of ${formatMoney(amount)} shekels.
+  
+  Would you like to set "${category.name}" as the default category?
+  
+  Default means the next time you simply send 200 to the bot, and it will go straight to the "${category.name}" category — you won't need to select a category before adding the expense.
+  
+  This is useful for the category you spend on daily.
+  
+  You can change it later.`,
+          {
+            reply_markup: defaultChoiceKeyboard(category._id),
+          }
+        );
+        return;
+      }
+  
+      user.state = { step: null, payload: {} };
+      await user.save();
+  
+      const categories = await getActiveCategories(user.telegramUserId);
+  
+      await bot.sendMessage(
+        msg.chat.id,
+        `The "${category.name}" category is saved with an annual budget of ${formatMoney(amount)} shekels.`,
+        categoryKeyboardOptions(categories, user)
+      );
+      return;
+    } catch (err) {
+      if (err.message === 'CATEGORY_EXISTS') {
+        user.state = { step: 'awaiting_category_name', payload: {} };
+        await user.save();
+  
+        await bot.sendMessage(
+          msg.chat.id,
+          'A category with this exact name already exists. Please choose another name.'
+        );
+        return;
+      }
+  
+      throw err;
+    }
+  }
+
+  if (step === 'awaiting_category_amount') {
+    const amount = parseAmount(text);
+
+    if (amount === null) {
+      await bot.sendMessage(
+        msg.chat.id,
+        'Please send a valid amount like 300, 30.10 or 30,10'
+      );
+      return;
+    }
+
+    const category = await getCategoryById(
+      user.state.payload.categoryId,
+      user.telegramUserId
+    );
+
+    if (!category || category.status !== 'active') {
+      await bot.sendMessage(msg.chat.id, 'Category not found.');
+      return;
+    }
+
+    await applyAmount(category, amount);
+
+    await bot.sendMessage(
+      msg.chat.id,
+      formatCategoryDetails(category),
+      {
+        reply_markup: categoryActionsKeyboard(category),
+      }
+    );
+    return;
+  }
+
+  if (step === 'awaiting_rename') {
+    const category = await getCategoryById(
+      user.state.payload.categoryId,
+      user.telegramUserId
+    );
+
+    if (!category || category.status !== 'active') {
+      await bot.sendMessage(msg.chat.id, 'Category not found.');
+      return;
+    }
+
+    const normalizedName = normalizeCategoryName(text);
+
+    try {
+      await renameCategory(category, normalizedName);
+    } catch (err) {
+      if (err.message === 'CATEGORY_EXISTS') {
+        await bot.sendMessage(
+          msg.chat.id,
+          'A category with this exact name already exists. Please choose another name.'
+        );
+        return;
+      }
+      throw err;
+    }
+
+    user.state = { step: null, payload: {} };
+    await user.save();
+
+    const categories = await getActiveCategories(user.telegramUserId);
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `Category renamed to "${normalizedName}".`,
+      categoryKeyboardOptions(categories, user)
+    );
+    return;
+  }
+
+  if (step === 'awaiting_budget_update') {
+    const amount = parseAmount(text);
+
+    if (amount === null || amount < 0) {
+      await bot.sendMessage(
+        msg.chat.id,
+        'Please enter a valid positive budget.'
+      );
+      return;
+    }
+
+    const category = await getCategoryById(
+      user.state.payload.categoryId,
+      user.telegramUserId
+    );
+
+    if (!category || category.status !== 'active') {
+      await bot.sendMessage(msg.chat.id, 'Category not found.');
+      return;
+    }
+
+    await updateCategoryBudget(category, amount);
+
+    user.state = { step: null, payload: {} };
+    await user.save();
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `Budget updated to ${formatMoney(amount)}.`,
+      {
+        reply_markup: categoryActionsKeyboard(category),
+      }
+    );
+    return;
+  }
+
+  const amount = parseAmount(text);
+
+  if (amount !== null) {
+    if (!user.defaultCategoryId) {
+      await bot.sendMessage(
+        msg.chat.id,
+        "You didn't choose default category. Please select the category before sending the sum."
+      );
+      return;
+    }
+
+    const category = await getCategoryById(
+      user.defaultCategoryId,
+      user.telegramUserId
+    );
+
+    if (!category || category.type !== 'monthly' || category.status !== 'active') {
+      user.defaultCategoryId = null;
+      await user.save();
+
+      await bot.sendMessage(
+        msg.chat.id,
+        "You didn't choose default category. Please select the category before sending the sum."
+      );
+      return;
+    }
+
+    await applyAmount(category, amount);
+
+    await bot.sendMessage(
+      msg.chat.id,
+      formatCategoryDetails(category),
+      {
+        reply_markup: categoryActionsKeyboard(category),
+      }
+    );
+    return;
+  }
+
+  await bot.sendMessage(msg.chat.id, 'Unknown input.');
+}
+
+export async function handleCallback(bot, query, user) {
+  const data = query.data;
+  const chatId = query.message.chat.id;
+  const messageId = query.message.message_id;
+
+  if (data.startsWith('cat_type:')) {
+    const type = data.split(':')[1];
+  
+    user.state = {
+      step: 'awaiting_category_type_confirmation',
+      payload: {
+        ...user.state.payload,
+        type,
+      },
+    };
+    await user.save();
+  
+    const opposite = type === 'annual' ? 'monthly' : 'annual';
+  
+    await bot.editMessageText(
+      `The "${user.state.payload.name}" category will be saved as a ${type} category. You will be able to change it.`,
+      {
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: 'Confirm', callback_data: `confirm_cat_type:${type}` }],
+            [{ text: `Set as ${opposite[0].toUpperCase()}${opposite.slice(1)}`, callback_data: `cat_type:${opposite}` }],
+          ],
+        },
+      }
+    );
+    return;
+  }
+
+  if (data.startsWith('confirm_cat_type:')) {
+    const type = data.split(':')[1];
+
+    user.state = {
+      step: 'awaiting_category_budget',
+      payload: {
+        ...user.state.payload,
+        type,
+      },
+    };
+    await user.save();
+
+    await bot.editMessageText(
+      `Set a budget for "${user.state.payload.name}" category.`,
+      {
+        chat_id: chatId,
+        message_id: messageId,
+      }
+    );
+    return;
+  }
+
+  if (data.startsWith('default_yes:')) {
+    const categoryId = data.split(':')[1];
+    const category = await getCategoryById(categoryId, user.telegramUserId);
+  
+    if (!category || category.type !== 'monthly' || category.status !== 'active') {
+      await bot.answerCallbackQuery(query.id, { text: 'Category not found.' });
+      return;
+    }
+  
+    await setDefaultCategory(user.telegramUserId, categoryId);
+  
+    user.defaultCategoryId = categoryId;
+    user.state = { step: null, payload: {} };
+    await user.save();
+  
+    const categories = await getActiveCategories(user.telegramUserId);
+  
+    await bot.sendMessage(
+      chatId,
+      `Category "${category.name}" set as default ⭐. Now when you enter an amount without choosing a category it will be added to “${category.name}”.`,
+      categoryKeyboardOptions(categories, user)
+    );
+  
+    await bot.editMessageReplyMarkup(
+      { inline_keyboard: [] },
+      {
+        chat_id: chatId,
+        message_id: messageId,
+      }
+    );
+  
+    return;
+  }
+  
+  if (data.startsWith('default_no:')) {
+    user.state = { step: null, payload: {} };
+    await user.save();
+  
+    const categories = await getActiveCategories(user.telegramUserId);
+  
+    await bot.sendMessage(
+      chatId,
+      'Okay.',
+      categoryKeyboardOptions(categories, user)
+    );
+  
+    await bot.editMessageReplyMarkup(
+      { inline_keyboard: [] },
+      {
+        chat_id: chatId,
+        message_id: messageId,
+      }
+    );
+  
+    return;
+  }
+
+  if (data.startsWith('history:')) {
+    const categoryId = data.split(':')[1];
+    const category = await getCategoryById(categoryId, user.telegramUserId);
+
+    if (!category || category.status !== 'active') {
+      await bot.answerCallbackQuery(query.id, { text: 'Category not found' });
+      return;
+    }
+
+    const text =
+      category.type === 'monthly'
+        ? formatMonthlyHistory(category)
+        : formatAnnualHistory(category);
+
+    await bot.editMessageText(text, {
+      chat_id: chatId,
+      message_id: messageId,
+      reply_markup: {
+        inline_keyboard: [
+          [{ text: '⬅️ Back', callback_data: `open_category:${category._id}` }],
+        ],
+      },
+    });
+    return;
+  }
+
+  if (data.startsWith('open_category:')) {
+    const categoryId = data.split(':')[1];
+    const category = await getCategoryById(categoryId, user.telegramUserId);
+
+    if (!category || category.status !== 'active') {
+      await bot.answerCallbackQuery(query.id, { text: 'Category not found' });
+      return;
+    }
+
+    user.state = {
+      step: 'awaiting_category_amount',
+      payload: { categoryId },
+    };
+    await user.save();
+
+    await bot.editMessageText(formatCategoryDetails(category), {
+      chat_id: chatId,
+      message_id: messageId,
+      reply_markup: categoryActionsKeyboard(category),
+    });
+    return;
+  }
+
+  if (data.startsWith('edit:')) {
+    const categoryId = data.split(':')[1];
+    const category = await getCategoryById(categoryId, user.telegramUserId);
+
+    if (!category || category.status !== 'active') {
+      await bot.answerCallbackQuery(query.id, { text: 'Category not found' });
+      return;
+    }
+
+    const isDefault =
+      user.defaultCategoryId &&
+      String(user.defaultCategoryId) === String(category._id);
+
+    await bot.editMessageText(
+      `Edit "${category.name}"`,
+      {
+        chat_id: chatId,
+        message_id: messageId,
+        reply_markup: editCategoryKeyboard(category, isDefault),
+      }
+    );
+    return;
+  }
+
+  if (data.startsWith('edit_rename:')) {
+    const categoryId = data.split(':')[1];
+
+    user.state = { step: 'awaiting_rename', payload: { categoryId } };
+    await user.save();
+
+    await bot.editMessageText('Send the new category name.', {
+      chat_id: chatId,
+      message_id: messageId,
+    });
+    return;
+  }
+
+  if (data.startsWith('edit_budget:')) {
+    const categoryId = data.split(':')[1];
+
+    user.state = { step: 'awaiting_budget_update', payload: { categoryId } };
+    await user.save();
+
+    await bot.editMessageText('Send the new budget.', {
+      chat_id: chatId,
+      message_id: messageId,
+    });
+    return;
+  }
+
+  if (data.startsWith('edit_reset:')) {
+    const categoryId = data.split(':')[1];
+    const category = await getCategoryById(categoryId, user.telegramUserId);
+
+    if (!category || category.status !== 'active') {
+      await bot.answerCallbackQuery(query.id, { text: 'Category not found' });
+      return;
+    }
+
+    await resetCategorySpend(category);
+
+    const categories = await getActiveCategories(user.telegramUserId);
+
+    await bot.editMessageText(
+      `Spend for "${category.name}" reset to 0.`,
+      {
+        chat_id: chatId,
+        message_id: messageId,
+      }
+    );
+
+    await bot.sendMessage(
+      chatId,
+      ' ',
+      categoryKeyboardOptions(categories, user)
+    );
+    return;
+  }
+
+  if (data.startsWith('edit_convert_to_monthly:')) {
+    const categoryId = data.split(':')[1];
+    const category = await getCategoryById(categoryId, user.telegramUserId);
+
+    if (!category || category.status !== 'active' || category.type !== 'annual') {
+      await bot.answerCallbackQuery(query.id, {
+        text: 'Category cannot be converted.',
+      });
+      return;
+    }
+
+    await convertAnnualToMonthly(category);
+
+    const categories = await getActiveCategories(user.telegramUserId);
+
+    await bot.editMessageText(
+      `"${category.name}" was converted to monthly.`,
+      {
+        chat_id: chatId,
+        message_id: messageId,
+      }
+    );
+
+    await bot.sendMessage(
+      chatId,
+      ' ',
+      categoryKeyboardOptions(categories, user)
+    );
+    return;
+  }
+
+  if (data.startsWith('set_default:')) {
+    const categoryId = data.split(':')[1];
+    const category = await getCategoryById(categoryId, user.telegramUserId);
+
+    if (!category || category.status !== 'active' || category.type !== 'monthly') {
+      await bot.answerCallbackQuery(query.id, {
+        text: 'Only monthly categories can be default.',
+      });
+      return;
+    }
+
+    await setDefaultCategory(user.telegramUserId, categoryId);
+
+    user.defaultCategoryId = categoryId;
+    await user.save();
+
+    const categories = await getActiveCategories(user.telegramUserId);
+
+    await bot.editMessageText(`"${category.name}" set as default ⭐.`, {
+      chat_id: chatId,
+      message_id: messageId,
+    });
+
+    await bot.sendMessage(
+      chatId,
+      ' ',
+      categoryKeyboardOptions(categories, user)
+    );
+    return;
+  }
+
+  if (data.startsWith('unset_default:')) {
+    await clearDefaultCategory(user.telegramUserId);
+
+    user.defaultCategoryId = null;
+    await user.save();
+
+    const categories = await getActiveCategories(user.telegramUserId);
+
+    await bot.editMessageText('Default category removed.', {
+      chat_id: chatId,
+      message_id: messageId,
+    });
+
+    await bot.sendMessage(
+      chatId,
+      ' ',
+      categoryKeyboardOptions(categories, user)
+    );
+    return;
+  }
+
+  if (data.startsWith('remove:')) {
+    const categoryId = data.split(':')[1];
+    const category = await getCategoryById(categoryId, user.telegramUserId);
+
+    if (!category || category.status !== 'active') {
+      await bot.answerCallbackQuery(query.id, { text: 'Category not found' });
+      return;
+    }
+
+    await bot.editMessageText(formatRemovePrompt(category), {
+      chat_id: chatId,
+      message_id: messageId,
+      reply_markup: confirmRemoveKeyboard(category._id),
+    });
+    return;
+  }
+
+  if (data.startsWith('confirm_remove:')) {
+    const categoryId = data.split(':')[1];
+    const category = await getCategoryById(categoryId, user.telegramUserId);
+
+    if (!category || category.status !== 'active') {
+      await bot.answerCallbackQuery(query.id, { text: 'Category not found' });
+      return;
+    }
+
+    await archiveCategory(category);
+
+    if (user.defaultCategoryId && String(user.defaultCategoryId) === String(category._id)) {
+      await clearDefaultCategory(user.telegramUserId);
+      user.defaultCategoryId = null;
+      await user.save();
+    }
+
+    const categories = await getActiveCategories(user.telegramUserId);
+
+    await bot.editMessageText(
+      `"${category.name}" was removed from the menu.`,
+      {
+        chat_id: chatId,
+        message_id: messageId,
+      }
+    );
+
+    await bot.sendMessage(
+      chatId,
+      ' ',
+      categoryKeyboardOptions(categories, user)
+    );
+    return;
+  }
+
+  await bot.answerCallbackQuery(query.id, { text: 'Unknown action' });
+}

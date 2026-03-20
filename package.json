@@ -1,0 +1,15 @@
+{
+  "name": "budget-bot",
+  "version": "1.0.0",
+  "main": "src/app.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node src/app.js",
+    "start": "node src/app.js"
+  },
+  "dependencies": {
+    "dotenv": "^16.4.5",
+    "mongoose": "^8.12.1",
+    "node-telegram-bot-api": "^0.66.0"
+  }
+}

@@ -1,0 +1,60 @@
+import mongoose from 'mongoose';
+
+const MonthlyHistorySchema = new mongoose.Schema(
+  {
+    year: Number,
+    month: Number,
+    budget: Number,
+    spent: Number,
+  },
+  { _id: false }
+);
+
+const AnnualYearHistorySchema = new mongoose.Schema(
+  {
+    year: Number,
+    budget: Number,
+    spent: Number,
+  },
+  { _id: false }
+);
+
+const CategorySchema = new mongoose.Schema(
+  {
+    userId: { type: Number, required: true, index: true },
+
+    name: { type: String, required: true },
+    nameKey: { type: String, required: true },
+
+    type: { type: String, enum: ['monthly', 'annual'], required: true },
+    status: { type: String, enum: ['active', 'archived'], default: 'active' },
+
+    currentBudget: { type: Number, required: true },
+    currentSpent: { type: Number, default: 0 },
+
+    period: {
+      year: Number,
+      month: Number,
+    },
+
+    currentYearMonthlySpent: {
+      type: Map,
+      of: Number,
+      default: () => new Map(),
+    },
+
+    history: {
+      months: { type: [MonthlyHistorySchema], default: [] },
+      years: { type: [AnnualYearHistorySchema], default: [] },
+    },
+  },
+  { timestamps: true }
+);
+
+// IMPORTANT: enforce uniqueness per user
+CategorySchema.index(
+  { userId: 1, nameKey: 1, status: 1 },
+  { unique: true }
+);
+
+export default mongoose.model('Category', CategorySchema);
