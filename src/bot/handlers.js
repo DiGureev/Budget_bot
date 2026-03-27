@@ -17,12 +17,12 @@ import {
 import {
   setDefaultCategory,
   clearDefaultCategory,
+  getDefaultCategoryById,
 } from '../services/userService.js';
 import {
     getCategoryButtonLabel,
     categoriesReplyKeyboard,
     categoryActionsKeyboard,
-    confirmCategoryTypeKeyboard,
     defaultChoiceKeyboard,
     editCategoryKeyboard,
     confirmRemoveKeyboard,
@@ -34,6 +34,26 @@ import {
   formatRemovePrompt,
   formatMoney,
 } from './messages.js';
+import {
+  WELCOME_MESSAGE,
+  ACCOUNT_CREATED_MESSAGE,
+  ADD_NEW_CATEGORY_MESSAGE,
+  EMAIL_VALIDATION_ERROR,
+  EMAIL_SAVE_ERROR,
+  BOT_STARTED_MESSAGE,
+  ADD_CATEGORY_ERROR,
+  ENTER_CATEGORY_NAME_MESSAGE,
+  CATEGORY_NAME_EXISTS_ERROR,
+  CREATE_CATEGORY_ERROR,
+  CATEGORY_TYPE_CHOICE_MESSAGE,
+  CATEGORY_BUDGET_VALIDATION_ERROR,
+  CATEGORY_CREATED_MESSAGE,
+  MAKE_DEFAULT_CATEGORY_MESSAGE,
+  DEFAULT_CATEGORY_SET_MESSAGE,
+  AMOUNT_VALIDATION_ERROR,
+  CATEGORY_NOT_FOUND_ERROR,
+  NOT_DEFAULT_CATEGORY_ERROR,
+} from './constants.js';
 
 function categoryKeyboardOptions(categories, user) {
     return {
@@ -45,30 +65,30 @@ export async function handleStart(bot, msg, user) {
     if (!user.onboarding.emailSubmitted) {
         await bot.sendMessage(
             msg.chat.id,
-          `<b>Welcome to the Spending Mirror Bot!</b>\n\nOur goal is to help you manage your monthly and annual spending. Please enter your <b>email</b> to create an account.`,
+          WELCOME_MESSAGE,
             { parse_mode: 'HTML' }
           );
         return;
+      } else {
+        const defaultCategory = await getDefaultCategoryById(user.telegramUserId);
+        const categories = await getActiveCategories(user.telegramUserId);
+        const hasCategories = categories.length > 0;
+        let message;
+        if (defaultCategory) {
+          message = `${BOT_STARTED_MESSAGE} Send the amount of spendings for default category "${defaultCategory.name}".`;
+        } else if (hasCategories) {
+          message = `${BOT_STARTED_MESSAGE} Choose the category to add the spendings.`;
+        } else {
+          message = `${BOT_STARTED_MESSAGE} Add categories to start tracking your spending.`;
+        }
+
+        await bot.sendMessage(
+          msg.chat.id,
+          message,
+          { parse_mode: 'HTML', ...categoryKeyboardOptions(categories, user) },
+        );
       }
 
-  const categories = await getActiveCategories(user.telegramUserId);
-
-  if (categories.length === 0) {
-    await bot.sendMessage(
-      msg.chat.id,
-      `Account is created 🎉
-
-Next step is to create categories that you want to track. You can add up to 8 categories. 🚀`,
-      categoryKeyboardOptions(categories, user)
-    );
-    return;
-  }
-
-  await bot.sendMessage(
-    msg.chat.id,
-    ' ',
-    categoryKeyboardOptions(categories, user)
-  );
 }
 
 export async function handleText(bot, msg, user) {
@@ -81,7 +101,7 @@ export async function handleText(bot, msg, user) {
     const email = text.trim();
 
     if (!isValidEmail(email)) {
-      await bot.sendMessage(msg.chat.id, 'Please enter a valid email address.');
+      await bot.sendMessage(msg.chat.id, EMAIL_VALIDATION_ERROR);
       return;
     }
 
@@ -90,7 +110,7 @@ export async function handleText(bot, msg, user) {
     if (!result.ok) {
       await bot.sendMessage(
         msg.chat.id,
-        'Could not save your email. Please try again.'
+        EMAIL_SAVE_ERROR
       );
       return;
     }
@@ -104,10 +124,8 @@ export async function handleText(bot, msg, user) {
 
     await bot.sendMessage(
       msg.chat.id,
-      `Account is created 🎉
-
-Next step is to create categories that you want to track. You can add up to 8 categories. 🚀`,
-      categoryKeyboardOptions(categories, user)
+      ACCOUNT_CREATED_MESSAGE, 
+      { parse_mode: 'HTML', ...categoryKeyboardOptions(categories, user) }
     );
     return;
   }
@@ -120,14 +138,15 @@ Next step is to create categories that you want to track. You can add up to 8 ca
     return;
   }
 
-  if (text === '➕ Add category') {
+  if (text === ADD_NEW_CATEGORY_MESSAGE) {
     const count = await countActiveCategories(user.telegramUserId);
 
     if (count >= 8) {
       await bot.sendMessage(
         msg.chat.id,
-        'You can add up to 8 categories.',
-        categoryKeyboardOptions(activeCategories, user)
+        ADD_CATEGORY_ERROR,
+        { parse_mode: 'HTML', ...categoryKeyboardOptions(activeCategories, user) },
+
       );
       return;
     }
@@ -137,8 +156,9 @@ Next step is to create categories that you want to track. You can add up to 8 ca
 
     await bot.sendMessage(
       msg.chat.id,
-      'Enter a name for your new category. Feel free to include emojis. You will be able to edit it later.',
+      ENTER_CATEGORY_NAME_MESSAGE,
       {
+        parse_mode: 'HTML',
         reply_markup: {
           remove_keyboard: true,
         },
@@ -179,8 +199,9 @@ Next step is to create categories that you want to track. You can add up to 8 ca
   
       await bot.sendMessage(
         msg.chat.id,
-        'You can add up to 8 categories.',
-        categoryKeyboardOptions(categories, user)
+        ADD_CATEGORY_ERROR,
+        { parse_mode: 'HTML', ...categoryKeyboardOptions(categories, user) },
+        
       );
       return;
     }
@@ -194,7 +215,8 @@ Next step is to create categories that you want to track. You can add up to 8 ca
     if (existing) {
       await bot.sendMessage(
         msg.chat.id,
-        'A category with this exact name already exists. Please choose another name.'
+        CATEGORY_NAME_EXISTS_ERROR,
+        { parse_mode: 'HTML' },
       );
       return;
     }
@@ -209,14 +231,14 @@ Next step is to create categories that you want to track. You can add up to 8 ca
   
     await bot.sendMessage(
       msg.chat.id,
-      `Is it an annual category or a monthly one?\n\nIf it's <b>monthly</b>, we will track your spending throughout the month, and it will reset on the first day of every month.\n\nFor an <b>annual</b> category, we will track the sum you set for this category throughout the year.`,
+      CATEGORY_TYPE_CHOICE_MESSAGE,
       {
         parse_mode: 'HTML',
         reply_markup: {
           inline_keyboard: [
             [
-              { text: 'Annual', callback_data: 'cat_type:annual' },
-              { text: 'Monthly', callback_data: 'cat_type:monthly' },
+              { text: '🗓️ Annual', callback_data: 'cat_type:annual' },
+              { text: '🌕 Monthly', callback_data: 'cat_type:monthly' },
             ],
           ],
           remove_keyboard: true,
@@ -232,7 +254,8 @@ Next step is to create categories that you want to track. You can add up to 8 ca
     if (amount === null || amount < 0) {
       await bot.sendMessage(
         msg.chat.id,
-        'Please enter a valid positive budget.'
+        CATEGORY_BUDGET_VALIDATION_ERROR,
+        { parse_mode: 'HTML' },
       );
       return;
     }
@@ -256,16 +279,9 @@ Next step is to create categories that you want to track. You can add up to 8 ca
   
         await bot.sendMessage(
           msg.chat.id,
-          `The "${category.name}" category is saved with a monthly budget of ${formatMoney(amount)} shekels.
-  
-  Would you like to set "${category.name}" as the default category?
-  
-  Default means the next time you simply send 200 to the bot, and it will go straight to the "${category.name}" category — you won't need to select a category before adding the expense.
-  
-  This is useful for the category you spend on daily.
-  
-  You can change it later.`,
+          MAKE_DEFAULT_CATEGORY_MESSAGE(category.name, formatMoney(amount)),
           {
+            parse_mode: 'HTML' ,
             reply_markup: defaultChoiceKeyboard(category._id),
           }
         );
@@ -279,23 +295,17 @@ Next step is to create categories that you want to track. You can add up to 8 ca
   
       await bot.sendMessage(
         msg.chat.id,
-        `The "${category.name}" category is saved with an annual budget of ${formatMoney(amount)} shekels.`,
-        categoryKeyboardOptions(categories, user)
+        CATEGORY_CREATED_MESSAGE(category.name, formatMoney(amount), 'annual'),
+        { parse_mode: 'HTML', ...categoryKeyboardOptions(categories, user) },
       );
       return;
     } catch (err) {
-      if (err.message === 'CATEGORY_EXISTS') {
-        user.state = { step: 'awaiting_category_name', payload: {} };
-        await user.save();
-  
-        await bot.sendMessage(
-          msg.chat.id,
-          'A category with this exact name already exists. Please choose another name.'
-        );
-        return;
-      }
-  
-      throw err;
+      await bot.sendMessage(
+        msg.chat.id,
+        CREATE_CATEGORY_ERROR,
+        { parse_mode: 'HTML' },
+      );
+      return;
     }
   }
 
@@ -305,7 +315,8 @@ Next step is to create categories that you want to track. You can add up to 8 ca
     if (amount === null) {
       await bot.sendMessage(
         msg.chat.id,
-        'Please send a valid amount like 300, 30.10 or 30,10'
+        AMOUNT_VALIDATION_ERROR,
+        { parse_mode: 'HTML' },
       );
       return;
     }
@@ -316,7 +327,7 @@ Next step is to create categories that you want to track. You can add up to 8 ca
     );
 
     if (!category || category.status !== 'active') {
-      await bot.sendMessage(msg.chat.id, 'Category not found.');
+      await bot.sendMessage(msg.chat.id, CATEGORY_NOT_FOUND_ERROR, { parse_mode: 'HTML' });
       return;
     }
 
@@ -339,7 +350,7 @@ Next step is to create categories that you want to track. You can add up to 8 ca
     );
 
     if (!category || category.status !== 'active') {
-      await bot.sendMessage(msg.chat.id, 'Category not found.');
+      await bot.sendMessage(msg.chat.id, CATEGORY_NOT_FOUND_ERROR, { parse_mode: 'HTML' });
       return;
     }
 
@@ -351,7 +362,8 @@ Next step is to create categories that you want to track. You can add up to 8 ca
       if (err.message === 'CATEGORY_EXISTS') {
         await bot.sendMessage(
           msg.chat.id,
-          'A category with this exact name already exists. Please choose another name.'
+          CATEGORY_NAME_EXISTS_ERROR,
+          { parse_mode: 'HTML' },
         );
         return;
       }
@@ -377,7 +389,8 @@ Next step is to create categories that you want to track. You can add up to 8 ca
     if (amount === null || amount < 0) {
       await bot.sendMessage(
         msg.chat.id,
-        'Please enter a valid positive budget.'
+        CATEGORY_BUDGET_VALIDATION_ERROR,
+        { parse_mode: 'HTML' },
       );
       return;
     }
@@ -388,7 +401,7 @@ Next step is to create categories that you want to track. You can add up to 8 ca
     );
 
     if (!category || category.status !== 'active') {
-      await bot.sendMessage(msg.chat.id, 'Category not found.');
+      await bot.sendMessage(msg.chat.id, CATEGORY_NOT_FOUND_ERROR, { parse_mode: 'HTML' });
       return;
     }
 
@@ -413,7 +426,8 @@ Next step is to create categories that you want to track. You can add up to 8 ca
     if (!user.defaultCategoryId) {
       await bot.sendMessage(
         msg.chat.id,
-        "You didn't choose default category. Please select the category before sending the sum."
+        NOT_DEFAULT_CATEGORY_ERROR,
+        { parse_mode: 'HTML' },
       );
       return;
     }
@@ -429,7 +443,8 @@ Next step is to create categories that you want to track. You can add up to 8 ca
 
       await bot.sendMessage(
         msg.chat.id,
-        "You didn't choose default category. Please select the category before sending the sum."
+        NOT_DEFAULT_CATEGORY_ERROR,
+        { parse_mode: 'HTML' },
       );
       return;
     }
@@ -444,7 +459,15 @@ Next step is to create categories that you want to track. You can add up to 8 ca
       }
     );
     return;
+  } else {
+    if (step === "awaiting_category_type_choice"){
+      await bot.sendMessage(msg.chat.id, 'Please choose a type for new category');
+      return;
+    }
   }
+  console.log(step);
+  console.log(text);
+  console.log(amount)
 
   await bot.sendMessage(msg.chat.id, 'Unknown input.');
 }
@@ -475,8 +498,8 @@ export async function handleCallback(bot, query, user) {
         message_id: messageId,
         reply_markup: {
           inline_keyboard: [
-            [{ text: 'Confirm', callback_data: `confirm_cat_type:${type}` }],
-            [{ text: `Set as ${opposite[0].toUpperCase()}${opposite.slice(1)}`, callback_data: `cat_type:${opposite}` }],
+            [{ text: '✅ Confirm', callback_data: `confirm_cat_type:${type}` }],
+            [{ text: `🔄 Set as ${opposite[0].toUpperCase()}${opposite.slice(1)}`, callback_data: `confirm_cat_type:${opposite}` }],
           ],
         },
       }
@@ -497,7 +520,7 @@ export async function handleCallback(bot, query, user) {
     await user.save();
 
     await bot.editMessageText(
-      `Set a budget for "${user.state.payload.name}" category.`,
+      `Set a budget for "${type === 'monthly' ? 'a monthly' : 'an annual'} ${user.state.payload.name}" category.`,
       {
         chat_id: chatId,
         message_id: messageId,
@@ -511,7 +534,7 @@ export async function handleCallback(bot, query, user) {
     const category = await getCategoryById(categoryId, user.telegramUserId);
   
     if (!category || category.type !== 'monthly' || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: 'Category not found.' });
+      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
       return;
     }
   
@@ -525,8 +548,8 @@ export async function handleCallback(bot, query, user) {
   
     await bot.sendMessage(
       chatId,
-      `Category "${category.name}" set as default ⭐. Now when you enter an amount without choosing a category it will be added to “${category.name}”.`,
-      categoryKeyboardOptions(categories, user)
+      DEFAULT_CATEGORY_SET_MESSAGE(category.name),
+      { parse_mode: 'HTML', ...categoryKeyboardOptions(categories, user) },
     );
   
     await bot.editMessageReplyMarkup(
@@ -568,7 +591,7 @@ export async function handleCallback(bot, query, user) {
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: 'Category not found' });
+      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
       return;
     }
 
@@ -594,7 +617,7 @@ export async function handleCallback(bot, query, user) {
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: 'Category not found' });
+      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
       return;
     }
 
@@ -617,7 +640,7 @@ export async function handleCallback(bot, query, user) {
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: 'Category not found' });
+      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
       return;
     }
 
@@ -667,7 +690,7 @@ export async function handleCallback(bot, query, user) {
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: 'Category not found' });
+      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
       return;
     }
 
@@ -685,7 +708,7 @@ export async function handleCallback(bot, query, user) {
 
     await bot.sendMessage(
       chatId,
-      ' ',
+      'Updated.',
       categoryKeyboardOptions(categories, user)
     );
     return;
@@ -716,7 +739,7 @@ export async function handleCallback(bot, query, user) {
 
     await bot.sendMessage(
       chatId,
-      ' ',
+      'Updated.',
       categoryKeyboardOptions(categories, user)
     );
     return;
@@ -747,7 +770,7 @@ export async function handleCallback(bot, query, user) {
 
     await bot.sendMessage(
       chatId,
-      ' ',
+      'Updated.',
       categoryKeyboardOptions(categories, user)
     );
     return;
@@ -768,7 +791,7 @@ export async function handleCallback(bot, query, user) {
 
     await bot.sendMessage(
       chatId,
-      ' ',
+      'Updated.',
       categoryKeyboardOptions(categories, user)
     );
     return;
@@ -779,7 +802,7 @@ export async function handleCallback(bot, query, user) {
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: 'Category not found' });
+      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
       return;
     }
 
@@ -796,7 +819,7 @@ export async function handleCallback(bot, query, user) {
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: 'Category not found' });
+      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
       return;
     }
 
@@ -807,20 +830,14 @@ export async function handleCallback(bot, query, user) {
       user.defaultCategoryId = null;
       await user.save();
     }
-
+    
     const categories = await getActiveCategories(user.telegramUserId);
 
-    await bot.editMessageText(
-      `"${category.name}" was removed from the menu.`,
-      {
-        chat_id: chatId,
-        message_id: messageId,
-      }
-    );
+    console.log(categories);
 
     await bot.sendMessage(
       chatId,
-      ' ',
+      `"${category.name}" was removed from the menu.`,
       categoryKeyboardOptions(categories, user)
     );
     return;

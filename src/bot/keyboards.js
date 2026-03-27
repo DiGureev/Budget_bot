@@ -1,19 +1,22 @@
+import { ADD_NEW_CATEGORY_MESSAGE } from "./constants.js";
+
 export function getCategoryButtonLabel(category, user) {
     const spent = formatAmount(category.currentSpent || 0);
     const budget = formatAmount(category.currentBudget || 0);
+    const type = category.type;
   
     const isDefault =
       user?.defaultCategoryId &&
       String(user.defaultCategoryId) === String(category._id);
   
-    return `${category.name} ${spent}/${budget}${isDefault ? ' (default) ⭐' : ''}`;
+    return `${category.name} ${spent}/${budget}${isDefault ? ' ⭐' : ''} (${type})`;
   }
   
   export function categoriesReplyKeyboard(categories, user) {
     const rows = categories.map((category) => [getCategoryButtonLabel(category, user)]);
   
     if (categories.length < 8) {
-      rows.push(['➕ Add category']);
+      rows.push([ADD_NEW_CATEGORY_MESSAGE]);
     }
   
     return {

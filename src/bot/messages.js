@@ -24,7 +24,7 @@ export function formatMoney(value) {
   Spent: ${formatMoney(spent)}
   Remaining: ${formatMoney(remaining)}
   
-  Enter a spending for category "${category.name}"`;
+  Enter a spending for category "${category.name}. Or choose the action below."`;
   }
   
   export function formatMonthlyHistory(category) {

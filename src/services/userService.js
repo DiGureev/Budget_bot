@@ -50,6 +50,11 @@ export async function setDefaultCategory(userId, categoryId) {
   );
 }
 
+export async function getDefaultCategoryById(userId) {
+  const user = await User.findOne({ telegramUserId: userId }).select('defaultCategoryId');
+  return user?.defaultCategoryId;
+}
+
 export async function clearDefaultCategory(userId) {
   return User.findOneAndUpdate(
     { telegramUserId: userId },
