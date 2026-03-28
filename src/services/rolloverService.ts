@@ -8,8 +8,8 @@ export function trimArray<T>(arr: T[], limit: number): T[] {
 
 type NowParts = ReturnType<typeof getNowParts>;
 
-export async function ensureUserPeriodsCurrent(userId: number): Promise<void> {
-  const categories = await Category.find({ userId, status: 'active' });
+export async function ensureChatPeriodsCurrent(chatId: number): Promise<void> {
+  const categories = await Category.find({ chatId, status: 'active' });
   const now = getNowParts();
 
   for (const category of categories) {

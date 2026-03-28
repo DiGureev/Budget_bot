@@ -8,7 +8,7 @@ export async function getOrCreateUser(msg: Message) {
   const telegramUserId = msg.from.id;
   const chatId = msg.chat.id;
 
-  let user = await User.findOne({ telegramUserId });
+  let user = await User.findOne({ chatId });
 
   if (!user) {
     user = await User.create({
@@ -29,7 +29,7 @@ export async function getOrCreateUser(msg: Message) {
     return { user, isNew: true };
   }
 
-  user.chatId = chatId;
+  user.telegramUserId = telegramUserId;
   user.username = msg.from.username || user.username;
   user.firstName = msg.from.first_name || user.firstName;
   user.lastSeenAt = new Date();
@@ -39,36 +39,36 @@ export async function getOrCreateUser(msg: Message) {
 }
 
 export async function setUserState(
-  userId: number,
+  chatId: number,
   step: string | null,
   payload: Record<string, unknown> = {}
 ): Promise<IUser | null> {
   return User.findOneAndUpdate(
-    { telegramUserId: userId },
+    { chatId },
     { $set: { state: { step, payload } } },
     { new: true }
   );
 }
 
 export async function setDefaultCategory(
-  userId: number,
+  chatId: number,
   categoryId: string
 ): Promise<IUser | null> {
   return User.findOneAndUpdate(
-    { telegramUserId: userId },
+    { chatId },
     { $set: { defaultCategoryId: categoryId } },
     { new: true }
   );
 }
 
-export async function getDefaultCategoryById(userId: number): Promise<string | null> {
-  const user = await User.findOne({ telegramUserId: userId }).select('defaultCategoryId');
+export async function getDefaultCategoryById(chatId: number): Promise<string | null> {
+  const user = await User.findOne({ chatId }).select('defaultCategoryId');
   return user?.defaultCategoryId ?? null;
 }
 
-export async function clearDefaultCategory(userId: number): Promise<IUser | null> {
+export async function clearDefaultCategory(chatId: number): Promise<IUser | null> {
   return User.findOneAndUpdate(
-    { telegramUserId: userId },
+    { chatId },
     { $set: { defaultCategoryId: null } },
     { new: true }
   );

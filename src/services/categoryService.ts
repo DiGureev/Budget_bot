@@ -2,17 +2,17 @@ import Category, { type ICategory } from '../models/Category.js';
 import { getNowParts, monthKey } from '../utils/dates.js';
 import { normalizeCategoryName } from '../utils/normalize.js';
 
-export async function countActiveCategories(userId: number): Promise<number> {
-  return Category.countDocuments({ userId, status: 'active' });
+export async function countActiveCategories(chatId: number): Promise<number> {
+  return Category.countDocuments({ chatId, status: 'active' });
 }
 
 export async function createCategory({
-  userId,
+  chatId,
   name,
   type,
   budget,
 }: {
-  userId: number;
+  chatId: number;
   name: string;
   type: 'monthly' | 'annual';
   budget: number;
@@ -20,7 +20,7 @@ export async function createCategory({
   const normalized = normalizeCategoryName(name);
 
   const existing = await Category.findOne({
-    userId,
+    chatId,
     nameKey: normalized,
     status: 'active',
   });
@@ -32,7 +32,7 @@ export async function createCategory({
   const { year, month } = getNowParts();
 
   const doc = {
-    userId,
+    chatId,
     name: normalized,
     nameKey: normalized,
     type,
@@ -52,15 +52,15 @@ export async function createCategory({
   return Category.create(doc);
 }
 
-export async function getActiveCategories(userId: number): Promise<ICategory[]> {
-  return Category.find({ userId, status: 'active' }).sort({ createdAt: 1 });
+export async function getActiveCategories(chatId: number): Promise<ICategory[]> {
+  return Category.find({ chatId, status: 'active' }).sort({ createdAt: 1 });
 }
 
 export async function getCategoryById(
   id: string,
-  userId: number
+  chatId: number
 ): Promise<ICategory | null> {
-  return Category.findOne({ _id: id, userId });
+  return Category.findOne({ _id: id, chatId });
 }
 
 export async function applyAmount(category: ICategory, amount: number): Promise<ICategory> {
@@ -90,7 +90,7 @@ export async function renameCategory(category: ICategory, newName: string): Prom
   const normalized = normalizeCategoryName(newName);
 
   const existing = await Category.findOne({
-    userId: category.userId,
+    chatId: category.chatId,
     nameKey: normalized,
     status: 'active',
     _id: { $ne: category._id },

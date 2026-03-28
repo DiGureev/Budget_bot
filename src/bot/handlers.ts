@@ -83,12 +83,12 @@ export async function handleStart(
     return;
   }
 
-  const defaultCategoryId = await getDefaultCategoryById(user.telegramUserId);
-  const categories = await getActiveCategories(user.telegramUserId);
+  const defaultCategoryId = await getDefaultCategoryById(user.chatId);
+  const categories = await getActiveCategories(user.chatId);
   const hasCategories = categories.length > 0;
   let message: string;
   if (defaultCategoryId) {
-    const defaultCat = await getCategoryById(defaultCategoryId, user.telegramUserId);
+    const defaultCat = await getCategoryById(defaultCategoryId, user.chatId);
     const displayName = defaultCat?.name ?? 'default';
     message = `${BOT_STARTED_MESSAGE} Send the amount of spendings for default category "${displayName}".`;
   } else if (hasCategories) {
@@ -107,7 +107,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
   const text = (msg.text || '').trim();
   const step = user.state?.step;
 
-  const activeCategories = await getActiveCategories(user.telegramUserId);
+  const activeCategories = await getActiveCategories(user.chatId);
 
   const hasCategories = activeCategories.length > 0;
 
@@ -129,6 +129,11 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
       return;
     }
 
+    if (!msg.from) {
+      await bot.sendMessage(msg.chat.id, 'Could not identify the sender.');
+      return;
+    }
+
     const result = await submitEmailToKit(email, user);
 
     if (!result.ok) {
@@ -144,7 +149,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
     user.state = { step: null, payload: {} };
     await user.save();
 
-    const categories = await getActiveCategories(user.telegramUserId);
+    const categories = await getActiveCategories(user.chatId);
 
     await bot.sendMessage(
       msg.chat.id,
@@ -163,7 +168,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
   }
 
   if (text === ADD_NEW_CATEGORY_MESSAGE) {
-    const count = await countActiveCategories(user.telegramUserId);
+    const count = await countActiveCategories(user.chatId);
 
     if (count >= 8) {
       await bot.sendMessage(
@@ -213,13 +218,13 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
   }
 
   if (step === 'awaiting_category_name') {
-    const count = await countActiveCategories(user.telegramUserId);
+    const count = await countActiveCategories(user.chatId);
   
     if (count >= 8) {
       user.state = { step: null, payload: {} };
       await user.save();
   
-      const categories = await getActiveCategories(user.telegramUserId);
+      const categories = await getActiveCategories(user.chatId);
   
       await bot.sendMessage(
         msg.chat.id,
@@ -291,7 +296,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
 
     try {
       const category = await createCategory({
-        userId: user.telegramUserId,
+        chatId: user.chatId,
         name,
         type,
         budget: amount,
@@ -314,7 +319,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
       user.state = { step: null, payload: {} };
       await user.save();
   
-      const categories = await getActiveCategories(user.telegramUserId);
+      const categories = await getActiveCategories(user.chatId);
   
       await bot.sendMessage(
         msg.chat.id,
@@ -343,7 +348,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
     const categoryId = String(
       (user.state.payload as { categoryId?: string }).categoryId ?? ''
     );
-    const category = await getCategoryById(categoryId, user.telegramUserId);
+    const category = await getCategoryById(categoryId, user.chatId);
 
     if (!category || category.status !== 'active') {
       await bot.sendMessage(msg.chat.id, CATEGORY_NOT_FOUND_ERROR, { parse_mode: 'HTML' });
@@ -352,7 +357,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
 
     await applyAmount(category, amount);
 
-    const categories = await getActiveCategories(user.telegramUserId);
+    const categories = await getActiveCategories(user.chatId);
 
     await bot.sendMessage(
       msg.chat.id,
@@ -368,7 +373,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
     const categoryId = String(
       (user.state.payload as { categoryId?: string }).categoryId ?? ''
     );
-    const category = await getCategoryById(categoryId, user.telegramUserId);
+    const category = await getCategoryById(categoryId, user.chatId);
 
     if (!category || category.status !== 'active') {
       await bot.sendMessage(msg.chat.id, CATEGORY_NOT_FOUND_ERROR, { parse_mode: 'HTML' });
@@ -394,7 +399,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
     user.state = { step: null, payload: {} };
     await user.save();
 
-    const categories = await getActiveCategories(user.telegramUserId);
+    const categories = await getActiveCategories(user.chatId);
 
     await bot.sendMessage(
       msg.chat.id,
@@ -419,7 +424,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
     const budgetCategoryId = String(
       (user.state.payload as { categoryId?: string }).categoryId ?? ''
     );
-    const category = await getCategoryById(budgetCategoryId, user.telegramUserId);
+    const category = await getCategoryById(budgetCategoryId, user.chatId);
 
     if (!category || category.status !== 'active') {
       await bot.sendMessage(msg.chat.id, CATEGORY_NOT_FOUND_ERROR, { parse_mode: 'HTML' });
@@ -455,7 +460,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
 
     const category = await getCategoryById(
       user.defaultCategoryId,
-      user.telegramUserId
+      user.chatId
     );
 
     if (!category || category.type !== 'monthly' || category.status !== 'active') {
@@ -472,7 +477,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
 
     await applyAmount(category, amount);
 
-    const categories = await getActiveCategories(user.telegramUserId);
+    const categories = await getActiveCategories(user.chatId);
 
     await bot.sendMessage(
       msg.chat.id,
@@ -574,20 +579,20 @@ export async function handleCallback(
 
   if (data.startsWith('default_yes:')) {
     const categoryId = data.split(':')[1];
-    const category = await getCategoryById(categoryId, user.telegramUserId);
+    const category = await getCategoryById(categoryId, user.chatId);
   
     if (!category || category.type !== 'monthly' || category.status !== 'active') {
       await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
       return;
     }
   
-    await setDefaultCategory(user.telegramUserId, categoryId);
+    await setDefaultCategory(user.chatId, categoryId);
   
     user.defaultCategoryId = categoryId;
     user.state = { step: null, payload: {} };
     await user.save();
   
-    const categories = await getActiveCategories(user.telegramUserId);
+    const categories = await getActiveCategories(user.chatId);
   
     await bot.sendMessage(
       chatId,
@@ -610,11 +615,11 @@ export async function handleCallback(
     user.state = { step: null, payload: {} };
     await user.save();
   
-    const categories = await getActiveCategories(user.telegramUserId);
+    const categories = await getActiveCategories(user.chatId);
   
     await bot.sendMessage(
       chatId,
-      ' ',
+      "Okay.",
       categoryKeyboardOptions(categories, user)
     );
   
@@ -631,7 +636,7 @@ export async function handleCallback(
 
   if (data.startsWith('history:')) {
     const categoryId = data.split(':')[1];
-    const category = await getCategoryById(categoryId, user.telegramUserId);
+    const category = await getCategoryById(categoryId, user.chatId);
 
     if (!category || category.status !== 'active') {
       await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
@@ -657,7 +662,7 @@ export async function handleCallback(
 
   if (data.startsWith('open_category:')) {
     const categoryId = data.split(':')[1];
-    const category = await getCategoryById(categoryId, user.telegramUserId);
+    const category = await getCategoryById(categoryId, user.chatId);
 
     if (!category || category.status !== 'active') {
       await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
@@ -680,7 +685,7 @@ export async function handleCallback(
 
   if (data.startsWith('edit:')) {
     const categoryId = data.split(':')[1];
-    const category = await getCategoryById(categoryId, user.telegramUserId);
+    const category = await getCategoryById(categoryId, user.chatId);
 
     if (!category || category.status !== 'active') {
       await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
@@ -728,7 +733,7 @@ export async function handleCallback(
 
   if (data.startsWith('edit_reset:')) {
     const categoryId = data.split(':')[1];
-    const category = await getCategoryById(categoryId, user.telegramUserId);
+    const category = await getCategoryById(categoryId, user.chatId);
 
     if (!category || category.status !== 'active') {
       await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
@@ -737,7 +742,7 @@ export async function handleCallback(
 
     await resetCategorySpend(category);
 
-    const categories = await getActiveCategories(user.telegramUserId);
+    const categories = await getActiveCategories(user.chatId);
 
     await bot.editMessageText(
       `Spend for "${category.name}" reset to 0.`,
@@ -757,7 +762,7 @@ export async function handleCallback(
 
   if (data.startsWith('edit_convert_to_monthly:')) {
     const categoryId = data.split(':')[1];
-    const category = await getCategoryById(categoryId, user.telegramUserId);
+    const category = await getCategoryById(categoryId, user.chatId);
 
     if (!category || category.status !== 'active' || category.type !== 'annual') {
       await bot.answerCallbackQuery(query.id, {
@@ -768,7 +773,7 @@ export async function handleCallback(
 
     await convertAnnualToMonthly(category);
 
-    const categories = await getActiveCategories(user.telegramUserId);
+    const categories = await getActiveCategories(user.chatId);
 
     await bot.editMessageText(
       `"${category.name}" was converted to monthly.`,
@@ -788,7 +793,7 @@ export async function handleCallback(
 
   if (data.startsWith('set_default:')) {
     const categoryId = data.split(':')[1];
-    const category = await getCategoryById(categoryId, user.telegramUserId);
+    const category = await getCategoryById(categoryId, user.chatId);
 
     if (!category || category.status !== 'active' || category.type !== 'monthly') {
       await bot.answerCallbackQuery(query.id, {
@@ -797,12 +802,12 @@ export async function handleCallback(
       return;
     }
 
-    await setDefaultCategory(user.telegramUserId, categoryId);
+    await setDefaultCategory(user.chatId, categoryId);
 
     user.defaultCategoryId = categoryId;
     await user.save();
 
-    const categories = await getActiveCategories(user.telegramUserId);
+    const categories = await getActiveCategories(user.chatId);
 
     await bot.editMessageText(`"${category.name}" set as default ⭐.`, {
       chat_id: chatId,
@@ -818,12 +823,12 @@ export async function handleCallback(
   }
 
   if (data.startsWith('unset_default:')) {
-    await clearDefaultCategory(user.telegramUserId);
+    await clearDefaultCategory(user.chatId);
 
     user.defaultCategoryId = null;
     await user.save();
 
-    const categories = await getActiveCategories(user.telegramUserId);
+    const categories = await getActiveCategories(user.chatId);
 
     await bot.editMessageText('Default category removed.', {
       chat_id: chatId,
@@ -840,7 +845,7 @@ export async function handleCallback(
 
   if (data.startsWith('remove:')) {
     const categoryId = data.split(':')[1];
-    const category = await getCategoryById(categoryId, user.telegramUserId);
+    const category = await getCategoryById(categoryId, user.chatId);
 
     if (!category || category.status !== 'active') {
       await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
@@ -857,7 +862,7 @@ export async function handleCallback(
 
   if (data.startsWith('confirm_remove:')) {
     const categoryId = data.split(':')[1];
-    const category = await getCategoryById(categoryId, user.telegramUserId);
+    const category = await getCategoryById(categoryId, user.chatId);
 
     if (!category || category.status !== 'active') {
       await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
@@ -867,12 +872,12 @@ export async function handleCallback(
     await archiveCategory(category);
 
     if (user.defaultCategoryId && String(user.defaultCategoryId) === String(category._id)) {
-      await clearDefaultCategory(user.telegramUserId);
+      await clearDefaultCategory(user.chatId);
       user.defaultCategoryId = null;
       await user.save();
     }
     
-    const categories = await getActiveCategories(user.telegramUserId);
+    const categories = await getActiveCategories(user.chatId);
 
     console.log(categories);
 

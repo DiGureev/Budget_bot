@@ -4,7 +4,9 @@ import mongoose, { HydratedDocument } from 'mongoose';
 export type UserDocument = HydratedDocument<IUser>;
 
 export interface IUser {
-  telegramUserId: number;
+  /** Last Telegram user who interacted in this chat (DM or group member). */
+  telegramUserId: number | null;
+  /** Workspace key: private chat or group — shared by all members. */
   chatId: number;
   username: string | null;
   firstName: string | null;
@@ -30,8 +32,8 @@ const UserStateSchema = new mongoose.Schema(
 
 const UserSchema = new mongoose.Schema<IUser>(
   {
-    telegramUserId: { type: Number, required: true, unique: true, index: true },
-    chatId: { type: Number, required: true },
+    telegramUserId: { type: Number, default: null, index: true },
+    chatId: { type: Number, required: true, unique: true, index: true },
     username: { type: String, default: null },
     firstName: { type: String, default: null },
 
