@@ -53,6 +53,7 @@ import {
   AMOUNT_VALIDATION_ERROR,
   CATEGORY_NOT_FOUND_ERROR,
   NOT_DEFAULT_CATEGORY_ERROR,
+  HELP_MESSAGE
 } from './constants.js';
 
 function categoryKeyboardOptions(categories, user) {
@@ -61,6 +62,13 @@ function categoryKeyboardOptions(categories, user) {
     };
   }
 
+export async function handleHelp(bot, msg, user) {
+  await bot.sendMessage(
+    msg.chat.id,
+    HELP_MESSAGE,
+    { parse_mode: 'HTML' }
+  );
+}
 export async function handleStart(bot, msg, user) {
     if (!user.onboarding.emailSubmitted) {
         await bot.sendMessage(
@@ -96,6 +104,18 @@ export async function handleText(bot, msg, user) {
   const step = user.state?.step;
 
   const activeCategories = await getActiveCategories(user.telegramUserId);
+
+  const hasCategories = activeCategories.length > 0;
+
+  if (user.onboarding.completed && !hasCategories && step === null && text !== ADD_NEW_CATEGORY_MESSAGE) {
+    await bot.sendMessage(
+      msg.chat.id,
+      'Please create categories to track your spendings first.',
+      { parse_mode: 'HTML'},
+    );
+    return;
+  }
+
 
   if (step === 'awaiting_email') {
     const email = text.trim();
@@ -333,11 +353,13 @@ export async function handleText(bot, msg, user) {
 
     await applyAmount(category, amount);
 
+    const categories = await getActiveCategories(user.telegramUserId);
+
     await bot.sendMessage(
       msg.chat.id,
       formatCategoryDetails(category),
       {
-        reply_markup: categoryActionsKeyboard(category),
+        ...categoryKeyboardOptions(categories, user)
       }
     );
     return;
@@ -451,11 +473,13 @@ export async function handleText(bot, msg, user) {
 
     await applyAmount(category, amount);
 
+    const categories = await getActiveCategories(user.telegramUserId);
+
     await bot.sendMessage(
       msg.chat.id,
       formatCategoryDetails(category),
       {
-        reply_markup: categoryActionsKeyboard(category),
+        ...categoryKeyboardOptions(categories, user)
       }
     );
     return;
@@ -491,15 +515,19 @@ export async function handleCallback(bot, query, user) {
   
     const opposite = type === 'annual' ? 'monthly' : 'annual';
   
-    await bot.editMessageText(
-      `The "${user.state.payload.name}" category will be saved as a ${type} category. You will be able to change it.`,
+    await bot.editMessageReplyMarkup(
+      { inline_keyboard: [] },
+      { chat_id: chatId, message_id: messageId }
+    );
+
+    await bot.sendMessage(
+      chatId,
+      `You chose ${type} category for "${user.state.payload.name}". Confirm?`,
       {
-        chat_id: chatId,
-        message_id: messageId,
         reply_markup: {
           inline_keyboard: [
             [{ text: '✅ Confirm', callback_data: `confirm_cat_type:${type}` }],
-            [{ text: `🔄 Set as ${opposite[0].toUpperCase()}${opposite.slice(1)}`, callback_data: `confirm_cat_type:${opposite}` }],
+            [{ text: `🔄 Set as ${opposite}`, callback_data: `confirm_cat_type:${opposite}` }],
           ],
         },
       }
@@ -519,13 +547,16 @@ export async function handleCallback(bot, query, user) {
     };
     await user.save();
 
-    await bot.editMessageText(
-      `Set a budget for "${type === 'monthly' ? 'a monthly' : 'an annual'} ${user.state.payload.name}" category.`,
-      {
-        chat_id: chatId,
-        message_id: messageId,
-      }
+    await bot.editMessageReplyMarkup(
+      { inline_keyboard: [] },
+      { chat_id: chatId, message_id: messageId }
     );
+
+    await bot.sendMessage(
+  chatId,
+  `Great. Now set a budget for ${type === 'monthly' ? 'a monthly' : 'an annual'} "${user.state.payload.name}" category.`,
+  { parse_mode: 'HTML' },
+);
     return;
   }
 
@@ -571,7 +602,7 @@ export async function handleCallback(bot, query, user) {
   
     await bot.sendMessage(
       chatId,
-      'Okay.',
+      ' ',
       categoryKeyboardOptions(categories, user)
     );
   

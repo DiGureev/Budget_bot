@@ -35,6 +35,8 @@ const CATEGORY_NOT_FOUND_ERROR = 'Category not found.'
 
 const NOT_DEFAULT_CATEGORY_ERROR = "You didn't choose default category. Please select the category before sending the sum."
 
+const HELP_MESSAGE = `💸 <b>Spending Mirror Bot — Help</b>\n\nTrack your spending by categories and stay in control of your budget.\n\n<b>🧩 How it works</b>\n1. Create categories (e.g. Food, Rent, Fun)\n2. Set a budget (monthly or annual)\n3. Add expenses by sending amounts (300 for spending or -300 for refund)\n4. Monitor progress and history\n\n<b>➕ Add a category</b>\nTap <b>"Add new category"</b> and follow steps:\n- Name → Type (monthly or annual) → Budget\n- Optionally set it as ⭐ default\n\n<b>💰 Add spending</b>\n- Select a category → send amount\n- OR just send amount (if default category is set)\n\n<b>✏️ Manage categories</b>\nSelect a category and then inside a category you can:\n- Rename\n- Change budget\n- Reset spending\n- View history\n- Convert annual → monthly\n- Set / remove ⭐ default\n- Delete category\n\n<b>⭐ Default category</b>\nIf set, you can quickly log expenses without choosing a category.\n\n<b>⚠️ Limits</b>\nYou can track up to 8 active categories.\n\nVisit <a href="https://bluewhitefinance.com/">Blue & White Finance Website</a> for independent financial education and support.`
+
 export {
     WELCOME_MESSAGE,
     ACCOUNT_CREATED_MESSAGE,
@@ -54,4 +56,5 @@ export {
     AMOUNT_VALIDATION_ERROR,
     CATEGORY_NOT_FOUND_ERROR,
     NOT_DEFAULT_CATEGORY_ERROR,
+    HELP_MESSAGE
 }

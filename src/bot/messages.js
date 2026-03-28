@@ -19,12 +19,7 @@ export function formatMoney(value) {
     const remaining = budget - spent;
     const label = category.type === 'annual' ? 'Annual Budget' : 'Monthly Budget';
   
-    return `${category.name} · ${label}: ${formatMoney(budget)}
-  
-  Spent: ${formatMoney(spent)}
-  Remaining: ${formatMoney(remaining)}
-  
-  Enter a spending for category "${category.name}. Or choose the action below."`;
+    return `${category.name} · ${label}: ${formatMoney(budget)}\n\nSpent: ${formatMoney(spent)}\nRemaining: ${formatMoney(remaining)}\n\nEnter a spending for category "${category.name}", or choose another action using the buttons below.`;
   }
   
   export function formatMonthlyHistory(category) {
@@ -35,9 +30,7 @@ export function formatMoney(value) {
     });
   
     if (!months.length) {
-      return `📊 History — ${category.name} (Monthly, ${formatMoney(budget)})
-  
-  No previous months yet.`;
+      return `📊 History — ${category.name} (Monthly, ${formatMoney(budget)})\n\nNo previous months yet.`;
     }
   
     const lines = months.map((item) => {
@@ -72,21 +65,11 @@ export function formatMoney(value) {
     const spent = Number(category.currentSpent || 0);
     const remaining = budget - spent;
   
-    return `📊 History — ${category.name} (Annual, ${formatMoney(budget)})
-  
-  ${monthEntries.length ? monthEntries.join('\n\n') : 'No monthly history for this year yet.'}
-  
-  Total spent for ${category.period.year}: ${formatMoney(spent)} / ${formatMoney(budget)}
-  Remaining for ${category.period.year}: ${formatMoney(remaining)}
-  
-  ${yearLines.length ? `Previous years:\n\n${yearLines.join('\n')}` : 'No previous years yet.'}`;
+    return `📊 History — ${category.name} (Annual, ${formatMoney(budget)})\n\n${monthEntries.length ? monthEntries.join('\n\n') : 'No monthly history for this year yet.'}\n\nTotal spent for ${category.period.year}: ${formatMoney(spent)} / ${formatMoney(budget)}\nRemaining for ${category.period.year}: ${formatMoney(remaining)}\n\n${yearLines.length ? `Previous years:\n\n${yearLines.join('\n')}` : 'No previous years yet.'}`;
   }
   
   export function formatRemovePrompt(category) {
-    return `⚠️ Are you sure you want to remove "${category.name}"?
-  
-  The category will be archived and hidden from the menu.
-  History will stay saved.`;
+    return `⚠️ Are you sure you want to remove "${category.name}"?\n\nThe category will be archived and hidden from the menu.\n\nHistory will stay saved.`;
   }
   
   export function monthName(month) {

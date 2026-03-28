@@ -3,7 +3,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import dotenv from 'dotenv';
 
 import { connectDb } from './config/db.js';
-import { handleStart, handleText, handleCallback } from './bot/handlers.js';
+import { handleStart, handleText, handleCallback , handleHelp} from './bot/handlers.js';
 import { getOrCreateUser } from './services/userService.js';
 import { ensureDailyBackup } from './services/backupService.js';
 import { ensureUserPeriodsCurrent } from './services/rolloverService.js';
@@ -39,6 +39,11 @@ async function processMessage(msg) {
     return;
   }
 
+  if (msg.text && msg.text.startsWith('/help')) {
+    await handleHelp(bot, msg, user);
+    return;
+  }
+
   if (msg.text) {
     await handleText(bot, msg, user);
   }
@@ -60,6 +65,11 @@ async function processCallback(query) {
 
 async function main() {
   await connectDb();
+
+  await bot.setMyCommands([
+    { command: 'start', description: 'Start the bot' },
+    { command: 'help', description: 'Help' },
+  ]);
 
   if (MODE === 'dev') {
     console.log('Running in DEV (polling mode)');
