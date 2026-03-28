@@ -619,7 +619,7 @@ export async function handleCallback(
   
     await bot.sendMessage(
       chatId,
-      "Okay.",
+      '👍',
       categoryKeyboardOptions(categories, user)
     );
   
