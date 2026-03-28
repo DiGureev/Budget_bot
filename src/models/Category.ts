@@ -14,7 +14,7 @@ export interface IAnnualYearHistoryEntry {
 }
 
 export interface ICategory extends Document {
-  userId: number;
+  chatId: number;
   name: string;
   nameKey: string;
   type: 'monthly' | 'annual';
@@ -53,7 +53,7 @@ const AnnualYearHistorySchema = new Schema(
 
 const CategorySchema = new Schema<ICategory>(
   {
-    userId: { type: Number, required: true, index: true },
+    chatId: { type: Number, required: true, index: true },
 
     name: { type: String, required: true },
     nameKey: { type: String, required: true },
@@ -83,7 +83,7 @@ const CategorySchema = new Schema<ICategory>(
   { timestamps: true }
 );
 
-CategorySchema.index({ userId: 1, nameKey: 1, status: 1 }, { unique: true });
+CategorySchema.index({ chatId: 1, nameKey: 1, status: 1 }, { unique: true });
 
 const Category: Model<ICategory> = mongoose.model<ICategory>('Category', CategorySchema);
 export default Category;

@@ -7,7 +7,7 @@ import { connectDb } from './config/db.js';
 import { handleStart, handleText, handleCallback , handleHelp} from './bot/handlers.js';
 import { getOrCreateUser } from './services/userService.js';
 import { ensureDailyBackup } from './services/backupService.js';
-import { ensureUserPeriodsCurrent } from './services/rolloverService.js';
+import { ensureChatPeriodsCurrent } from './services/rolloverService.js';
 
 dotenv.config();
 
@@ -33,7 +33,7 @@ app.get('/', (_req, res) => {
 async function processMessage(msg: Message) {
   const { user } = await getOrCreateUser(msg);
   await ensureDailyBackup();
-  await ensureUserPeriodsCurrent(user.telegramUserId);
+  await ensureChatPeriodsCurrent(user.chatId);
 
   if (msg.text && msg.text.startsWith('/start')) {
     await handleStart(bot, msg, user);
@@ -64,7 +64,7 @@ async function processCallback(query: CallbackQuery ) {
 
   const { user } = await getOrCreateUser(msg);
   await ensureDailyBackup();
-  await ensureUserPeriodsCurrent(user.telegramUserId);
+  await ensureChatPeriodsCurrent(user.chatId);
 
   await handleCallback(bot, query, user);
   await bot.answerCallbackQuery(query.id);
