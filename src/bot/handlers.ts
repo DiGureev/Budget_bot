@@ -356,7 +356,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
 
     await bot.sendMessage(
       msg.chat.id,
-      formatCategoryDetails(category),
+      formatCategoryDetails(category, false),
       {
         ...categoryKeyboardOptions(categories, user)
       }
@@ -476,7 +476,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
 
     await bot.sendMessage(
       msg.chat.id,
-      formatCategoryDetails(category),
+      formatCategoryDetails(category, false),
       {
         ...categoryKeyboardOptions(categories, user)
       }
