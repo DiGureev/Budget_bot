@@ -1,7 +1,7 @@
 import type TelegramBot from 'node-telegram-bot-api';
 import type { CallbackQuery, Message } from 'node-telegram-bot-api';
 import type { ICategory } from '../models/Category.js';
-import type { UserDocument } from '../models/User.js';
+import type { IUser, UserDocument } from '../models/User.js';
 import { isValidEmail } from '../utils/validators.js';
 import { normalizeCategoryName } from '../utils/normalize.js';
 import { parseAmount } from '../services/amountParser.js';
@@ -73,6 +73,12 @@ export async function handleHelp(bot: TelegramBot, msg: Message, user: UserDocum
     { parse_mode: 'HTML' }
   );
 }
+
+const resetUser = async (user: UserDocument) => {
+  user.state = { step: null, payload: {} };
+  await user.save();
+}
+
 export async function handleStart(
   bot: TelegramBot,
   msg: Message,
@@ -84,8 +90,7 @@ export async function handleStart(
   }
 
   //reset on start
-  user.state = { step: null, payload: {} };
-  await user.save();
+  await resetUser(user)
 
   const defaultCategoryId = await getDefaultCategoryById(user.telegramUserId);
   const categories = await getActiveCategories(user.telegramUserId);
@@ -878,7 +883,7 @@ export async function handleCallback(
     
     const categories = await getActiveCategories(user.telegramUserId);
 
-    console.log(categories);
+    await resetUser(user)
 
     await bot.sendMessage(
       chatId,
