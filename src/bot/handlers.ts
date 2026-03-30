@@ -83,6 +83,10 @@ export async function handleStart(
     return;
   }
 
+  //reset on start
+  user.state = { step: null, payload: {} };
+  await user.save();
+
   const defaultCategoryId = await getDefaultCategoryById(user.telegramUserId);
   const categories = await getActiveCategories(user.telegramUserId);
   const hasCategories = categories.length > 0;

@@ -19,10 +19,36 @@ export function categoriesReplyKeyboard(
   categories: ICategory[],
   user: IUser
 ): ReplyKeyboardMarkup {
-  const rows: KeyboardButton[][] = categories.map((category) => [
-    { text: getCategoryButtonLabel(category, user) },
-  ]);
+  // 1. Sort:
+  // - Monthly first
+  // - Higher budget first
+  const sorted = [...categories].sort((a, b) => {
+    if (a.type !== b.type) {
+      return a.type === 'monthly' ? -1 : 1;
+    }
+    return (b.currentBudget ?? 0) - (a.currentBudget ?? 0);
+  });
 
+  // 2. Split groups
+  const monthly = sorted.filter(c => c.type === 'monthly');
+  const annual = sorted.filter(c => c.type === 'annual');
+
+  // 3. Build rows
+  const rows: KeyboardButton[][] = [];
+
+  if (monthly.length) {
+    monthly.forEach(c => {
+      rows.push([{ text: getCategoryButtonLabel(c, user) }]);
+    });
+  }
+
+  if (annual.length) {
+    annual.forEach(c => {
+      rows.push([{ text: getCategoryButtonLabel(c, user) }]);
+    });
+  }
+
+  // 4. Add "Add category" button LAST
   if (categories.length < 8) {
     rows.push([{ text: ADD_NEW_CATEGORY_MESSAGE }]);
   }
