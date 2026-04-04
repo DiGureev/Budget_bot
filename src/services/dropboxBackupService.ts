@@ -1,18 +1,11 @@
-// export async function runDropboxBackup(): Promise<{ ok: boolean }> {
-//   console.log('DROPBOX BACKUP PLACEHOLDER');
-//   return { ok: true };
-// }
-
-import { exec } from 'child_process';
-import { promisify } from 'util';
 import fs from 'fs/promises';
 import path from 'path';
 import os from 'os';
-import { Dropbox } from 'dropbox';
-import { DROPBOX_TOKEN, MONGODB_URI } from '../config/env.js';
 import { createReadStream } from 'fs';
-
-const execAsync = promisify(exec);
+import { Dropbox } from 'dropbox';
+import { DROPBOX_TOKEN } from '../config/env.js';
+import User from '../models/User.js';
+import Category from '../models/Category.js';
 
 function getBackupFileName(): string {
   const now = new Date();
@@ -24,17 +17,22 @@ function getBackupFileName(): string {
   const minutes = String(now.getUTCMinutes()).padStart(2, '0');
   const seconds = String(now.getUTCSeconds()).padStart(2, '0');
 
-  return `mongodb-backup-${year}-${month}-${day}_${hours}-${minutes}-${seconds}.archive.gz`;
+  return `mongodb-backup-${year}-${month}-${day}_${hours}-${minutes}-${seconds}.json`;
 }
 
 async function createMongoDump(filePath: string): Promise<void> {
-  if (!MONGODB_URI) {
-    throw new Error('MONGO_URI is missing');
-  }
+  console.log('Creating JSON backup...');
 
-  const command = `mongodump --uri="${MONGODB_URI}" --archive | gzip > "${filePath}"`;
+  const users = await User.find().lean();
+  const categories = await Category.find().lean();
 
-  await execAsync(command);
+  const backup = {
+    exportedAt: new Date().toISOString(),
+    users,
+    categories,
+  };
+
+  await fs.writeFile(filePath, JSON.stringify(backup, null, 2));
 }
 
 export async function runDropboxBackup(): Promise<{ ok: boolean }> {
@@ -92,15 +90,12 @@ async function cleanupDropbox(dbx: Dropbox) {
       );
     });
 
-  const toDelete = backups.slice(7); // keep only 7 newest
+  const toDelete = backups.slice(7); // keep 7 newest
 
   for (const file of toDelete) {
     console.log('Deleting old backup:', file.name);
 
-    if (!file.path_lower) {
-      console.error('File path is missing:', file);
-      continue;
-    }
+    if (!file.path_lower) continue;
 
     await dbx.filesDeleteV2({
       path: file.path_lower,
