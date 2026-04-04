@@ -1,7 +1,7 @@
 import {Message} from "node-telegram-bot-api";
 import {ensureDailyBackup} from "../../services/backupService.js";
-import {ensureUserPeriodsCurrent} from "../../services/rolloverService.js";
-import {getOrCreateUser} from "../../services/userService.js";
+import {ensureContextPeriodsCurrent} from "../../services/rolloverService.js";
+import {getOrCreateUser, getContext} from "../../services/userService.js";
 import {CategoryType, ICategory, type UserDocument} from "../../types.js";
 import {isValidEmail} from "../../utils/validators.js";
 import {submitEmailToKit} from "../kitService.js";
@@ -27,21 +27,24 @@ import {normalizeCategoryName} from "../../utils/normalize.js";
 import {parseAmount} from "../amountParser.js";
 
 export const setUpUserAndBackup = async (
-  msg: Message
+  msg: Message,
 ): Promise<UserDocument> => {
   if (!msg.from || !msg.chat) {
     throw new Error("Invalid message");
   }
 
   const {user} = await getOrCreateUser(msg);
+  const context = getContext(msg);
+
   await ensureDailyBackup();
-  await ensureUserPeriodsCurrent(user.telegramUserId);
+  await ensureContextPeriodsCurrent(context);
+
   return user;
 };
 
 export const submitEmail = async (
   email: string,
-  user: UserDocument
+  user: UserDocument,
 ): Promise<{ok: boolean; error?: string}> => {
   if (!isValidEmail(email)) {
     return {ok: false, error: EMAIL_VALIDATION_ERROR};
@@ -55,7 +58,7 @@ export const submitEmail = async (
 
   user.onboarding.emailSubmitted = true;
   user.onboarding.completed = true;
-  user.state = {step: null, payload: {}};
+  user.state = {step: null, context: null, payload: {}};
   await user.save();
 
   return {ok: true};
@@ -68,12 +71,14 @@ type CategoryNameResult =
 export const submitCategoryName = async (
   text: string,
   user: UserDocument,
-  activeCategories: ICategory[]
+  activeCategories: ICategory[],
 ): Promise<CategoryNameResult> => {
-  const count = await countActiveCategories(user.telegramUserId);
+  const context = user.state.context!;
+
+  const count = await countActiveCategories(context);
 
   if (count >= 8) {
-    user.state = {step: null, payload: {}};
+    user.state = {step: null, context: null, payload: {}};
     await user.save();
 
     return {ok: false, error: CATEGORIES_LIMIT_REACHED_ERROR};
@@ -82,7 +87,7 @@ export const submitCategoryName = async (
   const normalizedName = normalizeCategoryName(text);
 
   const existing = activeCategories.some(
-    (category) => category.name === normalizedName
+    (category) => category.name === normalizedName,
   );
 
   if (existing) {
@@ -91,6 +96,7 @@ export const submitCategoryName = async (
 
   user.state = {
     step: "awaiting_category_type_choice",
+    context,
     payload: {name: normalizedName},
   };
   await user.save();
@@ -104,7 +110,8 @@ type CreateCategoryResult =
 
 export const submitCategoryBudget = async (
   text: string,
-  user: UserDocument
+  user: UserDocument,
+  context: {ownerId: number; ownerType: "user" | "group"},
 ): Promise<CreateCategoryResult> => {
   const amount = parseAmount(text);
 
@@ -119,7 +126,7 @@ export const submitCategoryBudget = async (
 
   try {
     const category = await createCategory({
-      userId: user.telegramUserId,
+      context,
       name,
       type,
       budget: amount,
@@ -128,6 +135,7 @@ export const submitCategoryBudget = async (
     if (type === "monthly") {
       user.state = {
         step: "awaiting_default_category_confirmation",
+        context,
         payload: {categoryId: String(category._id)},
       };
       await user.save();
@@ -135,7 +143,7 @@ export const submitCategoryBudget = async (
       return {ok: true, category, type, amount};
     }
 
-    user.state = {step: null, payload: {}};
+    user.state = {step: null, context: null, payload: {}};
     await user.save();
 
     return {ok: true, category, type, amount};
@@ -150,7 +158,8 @@ type ApplyAmountResult =
 
 export async function submitCategoryAmount(
   text: string,
-  user: UserDocument
+  user: UserDocument,
+  context: {ownerId: number; ownerType: "user" | "group"},
 ): Promise<ApplyAmountResult> {
   const amount = parseAmount(text);
 
@@ -159,10 +168,10 @@ export async function submitCategoryAmount(
   }
 
   const categoryId = String(
-    (user.state.payload as {categoryId?: string}).categoryId ?? ""
+    (user.state.payload as {categoryId?: string}).categoryId ?? "",
   );
 
-  const category = await getCategoryById(categoryId, user.telegramUserId);
+  const category = await getCategoryById(categoryId, context);
 
   if (!category || category.status !== "active") {
     return {ok: false, error: CATEGORY_NOT_FOUND_ERROR};
@@ -179,13 +188,14 @@ type RenameCategoryResult =
 
 export async function processRenameCategory(
   text: string,
-  user: UserDocument
+  user: UserDocument,
+  context: {ownerId: number; ownerType: "user" | "group"},
 ): Promise<RenameCategoryResult> {
   const categoryId = String(
-    (user.state.payload as {categoryId?: string}).categoryId ?? ""
+    (user.state.payload as {categoryId?: string}).categoryId ?? "",
   );
 
-  const category = await getCategoryById(categoryId, user.telegramUserId);
+  const category = await getCategoryById(categoryId, context);
 
   if (!category || category.status !== "active") {
     return {ok: false, error: CATEGORY_NOT_FOUND_ERROR};
@@ -199,10 +209,10 @@ export async function processRenameCategory(
     if (err instanceof Error && err.message === "CATEGORY_EXISTS") {
       return {ok: false, error: CATEGORY_NAME_EXISTS_ERROR};
     }
-    throw err; // keep unexpected errors visible
+    throw err;
   }
 
-  user.state = {step: null, payload: {}};
+  user.state = {step: null, context: null, payload: {}};
   await user.save();
 
   return {ok: true, normalizedName};
@@ -214,7 +224,8 @@ type UpdateBudgetResult =
 
 export async function processCategoryBudgetUpdate(
   text: string,
-  user: UserDocument
+  user: UserDocument,
+  context: {ownerId: number; ownerType: "user" | "group"},
 ): Promise<UpdateBudgetResult> {
   const amount = parseAmount(text);
 
@@ -223,10 +234,10 @@ export async function processCategoryBudgetUpdate(
   }
 
   const categoryId = String(
-    (user.state.payload as {categoryId?: string}).categoryId ?? ""
+    (user.state.payload as {categoryId?: string}).categoryId ?? "",
   );
 
-  const category = await getCategoryById(categoryId, user.telegramUserId);
+  const category = await getCategoryById(categoryId, context);
 
   if (!category || category.status !== "active") {
     return {ok: false, error: CATEGORY_NOT_FOUND_ERROR};
@@ -234,17 +245,17 @@ export async function processCategoryBudgetUpdate(
 
   await updateCategoryBudget(category, amount);
 
-  user.state = {step: null, payload: {}};
+  user.state = {step: null, context: null, payload: {}};
   await user.save();
 
   return {ok: true, category, amount};
 }
 
 export async function convertMonthlyToAnnual(
-  category: ICategory
+  category: ICategory,
 ): Promise<void> {
   const yearlySpent = Array.from(
-    category.currentYearMonthlySpent.values()
+    category.currentYearMonthlySpent.values(),
   ).reduce((sum, val) => sum + val, 0);
 
   category.type = "annual";
