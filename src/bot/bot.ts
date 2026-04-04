@@ -1,187 +1,82 @@
-import type TelegramBot from "node-telegram-bot-api";
-import type {CallbackQuery, Message} from "node-telegram-bot-api";
-import {type ICategory, type UserDocument} from "../types.js";
-import {parseAmount} from "../services/amountParser.js";
+import TelegramBot, {Message} from "node-telegram-bot-api";
+import {TELEGRAM_BOT_TOKEN} from "../config/env.js";
 import {
-  getActiveCategories,
-  getCategoryById,
-  applyAmount,
-  archiveCategory,
-} from "../services/categoryService.js";
-import {
-  getDefaultCategoryById,
-  getValidatedState,
-} from "../services/userService.js";
-import {
-  getCategoryButtonLabel,
-  categoriesReplyKeyboard,
-  categoryActionsKeyboard,
-} from "./keyboards.js";
-import {formatCategoryDetails} from "./messages.js";
-import {
-  WELCOME_MESSAGE,
-  BOT_STARTED_MESSAGE,
-  CATEGORY_NOT_FOUND_ERROR,
-  NOT_DEFAULT_CATEGORY_ERROR,
-  HELP_MESSAGE,
-  CATEGORY_REMOVED,
-} from "./constants.js";
+  handleStart,
+  handleText,
+  handleCallback,
+  handleHelp,
+} from "./handlers.js";
+import {setUpUserAndBackup} from "../services/helpers/index.js";
+import {getContext} from "../services/userService.js"; // 🔥 ADD
 
-function categoryKeyboardOptions(categories: ICategory[], user: UserDocument) {
-  return {
-    reply_markup: categoriesReplyKeyboard(categories, user),
-  };
-}
-
-const resetUser = async (user: UserDocument) => {
-  user.state = {step: null, context: null, payload: {}};
-  await user.save();
-};
-
-export async function handleHelp(
-  bot: TelegramBot,
-  msg: Message,
-): Promise<void> {
-  await bot.sendMessage(msg.chat.id, HELP_MESSAGE, {parse_mode: "HTML"});
-}
-
-export async function handleStart(
-  bot: TelegramBot,
-  msg: Message,
-  user: UserDocument,
-  context: {ownerId: number; ownerType: "user" | "group"},
-): Promise<void> {
-  if (!user.onboarding.emailSubmitted) {
-    await bot.sendMessage(msg.chat.id, WELCOME_MESSAGE, {parse_mode: "HTML"});
-    return;
+export function createBot(): TelegramBot {
+  if (!TELEGRAM_BOT_TOKEN) {
+    throw new Error("Missing TELEGRAM_BOT_TOKEN");
   }
 
-  await resetUser(user);
+  const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, {polling: true});
 
-  const defaultCategoryId = await getDefaultCategoryById(user.telegramUserId);
-  const categories = await getActiveCategories(context);
+  bot.onText(/\/start/, async (msg) => {
+    try {
+      const user = await setUpUserAndBackup(msg);
 
-  let message: string;
-
-  if (defaultCategoryId) {
-    const defaultCat = await getCategoryById(defaultCategoryId, context);
-    const displayName = defaultCat?.name ?? "default";
-    message = `${BOT_STARTED_MESSAGE} Send spending for "${displayName}".`;
-  } else if (categories.length) {
-    message = `${BOT_STARTED_MESSAGE} Choose a category.`;
-  } else {
-    message = `${BOT_STARTED_MESSAGE} Add categories to start.`;
-  }
-
-  await bot.sendMessage(msg.chat.id, message, {
-    parse_mode: "HTML",
-    ...categoryKeyboardOptions(categories, user),
+      const context = getContext(msg); // 🔥 ADD
+      await handleStart(bot, msg, user, context); // 🔥 PASS CONTEXT
+    } catch (error) {
+      console.error("Error handling start command:", error);
+    }
   });
-}
 
-export async function handleText(
-  bot: TelegramBot,
-  msg: Message,
-  user: UserDocument,
-  context: {ownerId: number; ownerType: "user" | "group"},
-): Promise<void> {
-  const text = (msg.text || "").trim();
+  bot.onText(/\/help/, async (msg) => {
+    try {
+      await setUpUserAndBackup(msg);
 
-  const state = await getValidatedState(user, context);
-  const step = state?.step;
+      const context = getContext(msg); // 🔥 ADD
+      await handleHelp(bot, msg, context); // 🔥 PASS CONTEXT
+    } catch (error) {
+      console.error("Error handling help command:", error);
+    }
+  });
 
-  const activeCategories = await getActiveCategories(context);
+  bot.on("message", async (msg) => {
+    if (!msg.text || msg.text.startsWith("/")) return;
 
-  const selectedCategory = activeCategories.find(
-    (c) => text === getCategoryButtonLabel(c, user),
-  );
+    try {
+      const user = await setUpUserAndBackup(msg);
 
-  if (selectedCategory) {
-    user.state = {
-      step: "awaiting_category_amount",
-      context,
-      payload: {categoryId: String(selectedCategory._id)},
+      const context = getContext(msg); // 🔥 ADD
+      await handleText(bot, msg, user, context); // 🔥 PASS CONTEXT
+    } catch (error) {
+      console.error("Error handling text command:", error);
+    }
+  });
+
+  bot.on("callback_query", async (query) => {
+    if (
+      !query.message?.chat ||
+      !query.message?.message_id ||
+      !query.message?.date
+    )
+      return;
+
+    const msg: Message = {
+      from: query.from,
+      chat: query.message.chat,
+      message_id: query.message.message_id,
+      date: query.message.date,
     };
-    await user.save();
 
-    await bot.sendMessage(
-      msg.chat.id,
-      formatCategoryDetails(selectedCategory),
-      {reply_markup: categoryActionsKeyboard(selectedCategory)},
-    );
-    return;
-  }
+    try {
+      const user = await setUpUserAndBackup(msg);
 
-  if (!step) {
-    const amount = parseAmount(text);
+      const context = getContext(msg); // 🔥 ADD
+      await handleCallback(bot, query, user, context); // 🔥 PASS CONTEXT
 
-    if (amount === null) {
-      await bot.sendMessage(msg.chat.id, "Unknown input.");
-      return;
+      await bot.answerCallbackQuery(query.id);
+    } catch (error) {
+      console.error("Error handling callback query:", error);
     }
+  });
 
-    if (!user.defaultCategoryId) {
-      await bot.sendMessage(msg.chat.id, NOT_DEFAULT_CATEGORY_ERROR, {
-        parse_mode: "HTML",
-      });
-      return;
-    }
-
-    const category = await getCategoryById(user.defaultCategoryId, context);
-
-    if (!category) {
-      await bot.sendMessage(msg.chat.id, CATEGORY_NOT_FOUND_ERROR);
-      return;
-    }
-
-    await applyAmount(category, amount);
-
-    const categories = await getActiveCategories(context);
-
-    await bot.sendMessage(
-      msg.chat.id,
-      formatCategoryDetails(category, false),
-      categoryKeyboardOptions(categories, user),
-    );
-
-    return;
-  }
-
-  await bot.sendMessage(msg.chat.id, "Unknown input.");
-}
-
-export async function handleCallback(
-  bot: TelegramBot,
-  query: CallbackQuery,
-  user: UserDocument,
-  context: {ownerId: number; ownerType: "user" | "group"},
-): Promise<void> {
-  const data = query.data;
-  if (!data || !query.message || !("chat" in query.message)) return;
-
-  const chatId = query.message.chat.id;
-
-  if (data.startsWith("remove:")) {
-    const categoryId = data.split(":")[1];
-    const category = await getCategoryById(categoryId, context);
-
-    if (!category) {
-      await bot.sendMessage(chatId, CATEGORY_NOT_FOUND_ERROR);
-      return;
-    }
-
-    await archiveCategory(category);
-
-    const categories = await getActiveCategories(context);
-
-    await bot.sendMessage(
-      chatId,
-      CATEGORY_REMOVED(category.name),
-      categoryKeyboardOptions(categories, user),
-    );
-
-    return;
-  }
-
-  await bot.sendMessage(chatId, "Unknown action");
+  return bot;
 }

@@ -10,12 +10,9 @@ import {
   handleCallback,
   handleHelp,
 } from "./bot/handlers.js";
-import {
-  getOrCreateUser,
-  getContext, // 🔥 ADD
-} from "./services/userService.js";
+import {getOrCreateUser, getContext} from "./services/userService.js";
 import {ensureDailyBackup} from "./services/backupService.js";
-import {ensureContextPeriodsCurrent} from "./services/rolloverService.js"; // 🔥 CHANGED
+import {ensureContextPeriodsCurrent} from "./services/rolloverService.js";
 
 dotenv.config();
 
@@ -41,23 +38,23 @@ app.get("/", (_req, res) => {
 async function processMessage(msg: Message) {
   const {user} = await getOrCreateUser(msg);
 
-  const context = getContext(msg); // 🔥 ADD
+  const context = getContext(msg);
 
   await ensureDailyBackup();
-  await ensureContextPeriodsCurrent(context); // 🔥 FIX
+  await ensureContextPeriodsCurrent(context);
 
   if (msg.text && msg.text.startsWith("/start")) {
-    await handleStart(bot, msg, user, context); // 🔥 PASS
+    await handleStart(bot, msg, user, context);
     return;
   }
 
   if (msg.text && msg.text.startsWith("/help")) {
-    await handleHelp(bot, msg); // (no need context)
+    await handleHelp(bot, msg);
     return;
   }
 
   if (msg.text) {
-    await handleText(bot, msg, user, context); // 🔥 PASS
+    await handleText(bot, msg, user, context);
   }
 }
 
@@ -79,12 +76,12 @@ async function processCallback(query: CallbackQuery) {
 
   const {user} = await getOrCreateUser(msg);
 
-  const context = getContext(msg); // 🔥 ADD
+  const context = getContext(msg);
 
   await ensureDailyBackup();
-  await ensureContextPeriodsCurrent(context); // 🔥 FIX
+  await ensureContextPeriodsCurrent(context);
 
-  await handleCallback(bot, query, user, context); // 🔥 PASS
+  await handleCallback(bot, query, user, context);
   await bot.answerCallbackQuery(query.id);
 }
 
