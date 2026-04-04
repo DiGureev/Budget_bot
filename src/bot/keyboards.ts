@@ -61,12 +61,12 @@ export function categoriesReplyKeyboard(
 
 export function categoryActionsKeyboard(category: ICategory) {
   return {
-    
+
     inline_keyboard: [
       [
-        { text: 'History', callback_data: `history:${String(category._id)}` },
-        { text: 'Edit', callback_data: `edit:${String(category._id)}` },
-        { text: 'Remove', callback_data: `remove:${String(category._id)}` },
+        { text: '📊 History', callback_data: `history:${String(category._id)}` },
+        { text: '✏️ Edit', callback_data: `edit:${String(category._id)}` },
+        { text: '🪣 Remove', callback_data: `remove:${String(category._id)}` },
       ],
     ],
   };
@@ -87,8 +87,8 @@ export function defaultChoiceKeyboard(categoryId: string) {
   return {
     inline_keyboard: [
       [
-        { text: 'Yes', callback_data: `default_yes:${categoryId}` },
-        { text: 'No', callback_data: `default_no:${categoryId}` },
+        { text: '✅ Yes', callback_data: `default_yes:${categoryId}` },
+        { text: '❌ No', callback_data: `default_no:${categoryId}` },
       ],
     ],
   };
@@ -96,15 +96,15 @@ export function defaultChoiceKeyboard(categoryId: string) {
 
 export function editCategoryKeyboard(category: ICategory, isDefault: boolean) {
   const rows: { text: string; callback_data: string }[][] = [
-    [{ text: 'Rename', callback_data: `edit_rename:${String(category._id)}` }],
-    [{ text: 'Update budget', callback_data: `edit_budget:${String(category._id)}` }],
-    [{ text: 'Reset spend to 0', callback_data: `edit_reset:${String(category._id)}` }],
+    [{ text: '✍️ Rename', callback_data: `edit_rename:${String(category._id)}` }],
+    [{ text: '💰 Update budget', callback_data: `edit_budget:${String(category._id)}` }],
+    [{ text: '🔄 Reset spend to 0', callback_data: `edit_reset:${String(category._id)}` }],
   ];
 
   if (category.type === 'annual') {
     rows.push([
       {
-        text: 'Convert to Monthly',
+        text: '🔃 Convert to Monthly',
         callback_data: `edit_convert_to_monthly:${String(category._id)}`,
       },
     ]);
@@ -119,7 +119,7 @@ export function editCategoryKeyboard(category: ICategory, isDefault: boolean) {
           : `set_default:${String(category._id)}`,
       },
       {
-        text: 'Convert to Annual',
+        text: '🔃  Convert to Annual',
         callback_data: `edit_convert_to_annual:${String(category._id)}`,
       },
     ]);
@@ -136,8 +136,8 @@ export function confirmRemoveKeyboard(categoryId: string) {
   return {
     inline_keyboard: [
       [
-        { text: 'Yes, remove', callback_data: `confirm_remove:${categoryId}` },
-        { text: 'Cancel', callback_data: `open_category:${categoryId}` },
+        { text: '✅ Yes, remove', callback_data: `confirm_remove:${categoryId}` },
+        { text: '❌ Cancel', callback_data: `open_category:${categoryId}` },
       ],
     ],
   };
