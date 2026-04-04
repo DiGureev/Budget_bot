@@ -10,9 +10,12 @@ import {
   handleCallback,
   handleHelp,
 } from "./bot/handlers.js";
-import {getOrCreateUser} from "./services/userService.js";
+import {
+  getOrCreateUser,
+  getContext, // 🔥 ADD
+} from "./services/userService.js";
 import {ensureDailyBackup} from "./services/backupService.js";
-import {ensureUserPeriodsCurrent} from "./services/rolloverService.js";
+import {ensureContextPeriodsCurrent} from "./services/rolloverService.js"; // 🔥 CHANGED
 
 dotenv.config();
 
@@ -37,21 +40,24 @@ app.get("/", (_req, res) => {
 
 async function processMessage(msg: Message) {
   const {user} = await getOrCreateUser(msg);
+
+  const context = getContext(msg); // 🔥 ADD
+
   await ensureDailyBackup();
-  await ensureUserPeriodsCurrent(user.telegramUserId);
+  await ensureContextPeriodsCurrent(context); // 🔥 FIX
 
   if (msg.text && msg.text.startsWith("/start")) {
-    await handleStart(bot, msg, user);
+    await handleStart(bot, msg, user, context); // 🔥 PASS
     return;
   }
 
   if (msg.text && msg.text.startsWith("/help")) {
-    await handleHelp(bot, msg);
+    await handleHelp(bot, msg); // (no need context)
     return;
   }
 
   if (msg.text) {
-    await handleText(bot, msg, user);
+    await handleText(bot, msg, user, context); // 🔥 PASS
   }
 }
 
@@ -72,10 +78,13 @@ async function processCallback(query: CallbackQuery) {
   };
 
   const {user} = await getOrCreateUser(msg);
-  await ensureDailyBackup();
-  await ensureUserPeriodsCurrent(user.telegramUserId);
 
-  await handleCallback(bot, query, user);
+  const context = getContext(msg); // 🔥 ADD
+
+  await ensureDailyBackup();
+  await ensureContextPeriodsCurrent(context); // 🔥 FIX
+
+  await handleCallback(bot, query, user, context); // 🔥 PASS
   await bot.answerCallbackQuery(query.id);
 }
 

@@ -13,6 +13,10 @@ export interface IUser {
   defaultCategoryId: string | null;
   state: {
     step: string | null;
+    context: {
+      ownerId: number;
+      ownerType: "user" | "group";
+    } | null;
     payload: Record<string, unknown>;
   };
   lastSeenAt: Date | null;
@@ -34,18 +38,25 @@ export interface IAnnualYearHistoryEntry {
 }
 
 export interface ICategory extends Document {
-  userId: number;
+  ownerId: number;
+  ownerType: "user" | "group";
+
   name: string;
   nameKey: string;
+
   type: CategoryType;
   status: "active" | "archived";
+
   currentBudget: number;
   currentSpent: number;
+
   period: {
     year: number;
     month: number | null;
   };
+
   currentYearMonthlySpent: Map<string, number>;
+
   history: {
     months: IMonthlyHistoryEntry[];
     years: IAnnualYearHistoryEntry[];
@@ -59,3 +70,8 @@ export interface IBackupLog extends Document {
   finishedAt: Date | null;
   error: string | null;
 }
+
+export type Context = {
+  ownerId: number;
+  ownerType: "user" | "group";
+};

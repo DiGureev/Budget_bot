@@ -1,4 +1,4 @@
-import type {ICategory, IUser} from "../types.ts";
+import type {ICategory, IUser} from "../types.js";
 
 export function formatMoney(value: number | string): string {
   const num = Number(value || 0);
@@ -17,7 +17,7 @@ export function formatCategoryLine(category: ICategory, user: IUser): string {
 
 export function formatCategoryDetails(
   category: ICategory,
-  showButtons: boolean = true
+  showButtons: boolean = true,
 ): string {
   const spent = Number(category.currentSpent || 0);
   const budget = Number(category.currentBudget || 0);
@@ -64,7 +64,7 @@ export function formatAnnualHistory(category: ICategory): string {
     .sort((a, b) => b.year - a.year)
     .map(
       (item) =>
-        `${item.year} — ${formatMoney(item.spent)}/${formatMoney(item.budget)}`
+        `${item.year} — ${formatMoney(item.spent)}/${formatMoney(item.budget)}`,
     );
 
   const spent = Number(category.currentSpent || 0);
@@ -96,7 +96,7 @@ export function monthName(month: number): string {
 }
 
 export function mapEntries(
-  mapLike: Map<string, number> | Record<string, number> | undefined
+  mapLike: Map<string, number> | Record<string, number> | undefined,
 ) {
   if (!mapLike) return [];
   if (
@@ -110,6 +110,6 @@ export function mapEntries(
     ([key, value]) => ({
       key,
       value,
-    })
+    }),
   );
 }

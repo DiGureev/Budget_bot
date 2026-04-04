@@ -9,8 +9,20 @@ export function trimArray<T>(arr: T[], limit: number): T[] {
 
 type NowParts = ReturnType<typeof getNowParts>;
 
-export async function ensureUserPeriodsCurrent(userId: number): Promise<void> {
-  const categories = await Category.find({userId, status: "active"});
+type Context = {
+  ownerId: number;
+  ownerType: "user" | "group";
+};
+
+export async function ensureContextPeriodsCurrent(
+  context: Context,
+): Promise<void> {
+  const categories = await Category.find({
+    ownerId: context.ownerId,
+    ownerType: context.ownerType,
+    status: "active",
+  });
+
   const now = getNowParts();
 
   for (const category of categories) {
@@ -24,7 +36,7 @@ export async function ensureUserPeriodsCurrent(userId: number): Promise<void> {
 
 export async function ensureMonthlyCategoryCurrent(
   category: ICategory,
-  now: NowParts
+  now: NowParts,
 ): Promise<void> {
   let {year, month} = category.period;
 
@@ -61,7 +73,7 @@ export async function ensureMonthlyCategoryCurrent(
 
 export async function ensureAnnualCategoryCurrent(
   category: ICategory,
-  now: NowParts
+  now: NowParts,
 ): Promise<void> {
   const currentYear = category.period.year;
 
@@ -71,6 +83,7 @@ export async function ensureAnnualCategoryCurrent(
       budget: category.currentBudget,
       spent: category.currentSpent,
     });
+
     category.history.years = trimArray(category.history.years, 5);
     category.currentSpent = 0;
     category.period.year = now.year;
@@ -78,13 +91,14 @@ export async function ensureAnnualCategoryCurrent(
   }
 
   const raw = category.currentYearMonthlySpent;
+
   const map: Map<string, number> =
     raw instanceof Map
       ? raw
       : new Map(
           Object.entries(raw ?? {}).map(
-            ([k, v]) => [k, Number(v)] as [string, number]
-          )
+            ([k, v]) => [k, Number(v)] as [string, number],
+          ),
         );
 
   const currentMonth = now.month;
@@ -97,5 +111,6 @@ export async function ensureAnnualCategoryCurrent(
   }
 
   category.currentYearMonthlySpent = map;
+
   await category.save();
 }

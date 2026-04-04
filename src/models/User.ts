@@ -5,9 +5,14 @@ import {IUser} from "../types.js";
 const UserStateSchema = new mongoose.Schema(
   {
     step: {type: String, default: null},
+    context: {
+      ownerId: {type: Number, default: null},
+      ownerType: {type: String, enum: ["user", "group"], default: null},
+    },
+
     payload: {type: mongoose.Schema.Types.Mixed, default: {}},
   },
-  {_id: false}
+  {_id: false},
 );
 
 const UserSchema = new mongoose.Schema<IUser>(
@@ -28,6 +33,7 @@ const UserSchema = new mongoose.Schema<IUser>(
 
     lastSeenAt: {type: Date, default: null},
   },
-  {timestamps: true}
+  {timestamps: true},
 );
+
 export default mongoose.model<IUser>("User", UserSchema);

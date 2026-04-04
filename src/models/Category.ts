@@ -8,7 +8,7 @@ const MonthlyHistorySchema = new Schema(
     budget: Number,
     spent: Number,
   },
-  {_id: false}
+  {_id: false},
 );
 
 const AnnualYearHistorySchema = new Schema(
@@ -17,12 +17,17 @@ const AnnualYearHistorySchema = new Schema(
     budget: Number,
     spent: Number,
   },
-  {_id: false}
+  {_id: false},
 );
 
 const CategorySchema = new Schema<ICategory>(
   {
-    userId: {type: Number, required: true, index: true},
+    ownerId: {type: Number, required: true, index: true},
+    ownerType: {
+      type: String,
+      enum: ["user", "group"],
+      required: true,
+    },
 
     name: {type: String, required: true},
     nameKey: {type: String, required: true},
@@ -49,13 +54,17 @@ const CategorySchema = new Schema<ICategory>(
       years: {type: [AnnualYearHistorySchema], default: []},
     },
   },
-  {timestamps: true}
+  {timestamps: true},
 );
 
-CategorySchema.index({userId: 1, nameKey: 1, status: 1}, {unique: true});
+CategorySchema.index(
+  {ownerId: 1, ownerType: 1, nameKey: 1, status: 1},
+  {unique: true},
+);
 
 const Category: Model<ICategory> = mongoose.model<ICategory>(
   "Category",
-  CategorySchema
+  CategorySchema,
 );
+
 export default Category;

@@ -3,17 +3,26 @@ import {CategoryType, type ICategory} from "../types.js";
 import {getNowParts, monthKey} from "../utils/dates.js";
 import {normalizeCategoryName} from "../utils/normalize.js";
 
-export async function countActiveCategories(userId: number): Promise<number> {
-  return Category.countDocuments({userId, status: "active"});
+type Context = {
+  ownerId: number;
+  ownerType: "user" | "group";
+};
+
+export async function countActiveCategories(context: Context): Promise<number> {
+  return Category.countDocuments({
+    ownerId: context.ownerId,
+    ownerType: context.ownerType,
+    status: "active",
+  });
 }
 
 export async function createCategory({
-  userId,
+  context,
   name,
   type,
   budget,
 }: {
-  userId: number;
+  context: Context;
   name: string;
   type: CategoryType;
   budget: number;
@@ -21,7 +30,8 @@ export async function createCategory({
   const normalized = normalizeCategoryName(name);
 
   const existing = await Category.findOne({
-    userId,
+    ownerId: context.ownerId,
+    ownerType: context.ownerType,
     nameKey: normalized,
     status: "active",
   });
@@ -33,20 +43,26 @@ export async function createCategory({
   const {year, month} = getNowParts();
 
   const doc = {
-    userId,
+    ownerId: context.ownerId,
+    ownerType: context.ownerType,
+
     name: normalized,
     nameKey: normalized,
+
     type,
     currentBudget: budget,
     currentSpent: 0,
+
     period: {
       year,
       month: type === "monthly" ? month : null,
     },
+
     history: {
       months: [] as ICategory["history"]["months"],
       years: [] as ICategory["history"]["years"],
     },
+
     ...(type === "annual"
       ? {currentYearMonthlySpent: new Map<string, number>()}
       : {}),
@@ -56,16 +72,24 @@ export async function createCategory({
 }
 
 export async function getActiveCategories(
-  userId: number,
+  context: Context,
 ): Promise<ICategory[]> {
-  return Category.find({userId, status: "active"}).sort({createdAt: 1});
+  return Category.find({
+    ownerId: context.ownerId,
+    ownerType: context.ownerType,
+    status: "active",
+  }).sort({createdAt: 1});
 }
 
 export async function getCategoryById(
   id: string,
-  userId: number,
+  context: Context,
 ): Promise<ICategory | null> {
-  return Category.findOne({_id: id, userId});
+  return Category.findOne({
+    _id: id,
+    ownerId: context.ownerId,
+    ownerType: context.ownerType,
+  });
 }
 
 export async function applyAmount(
@@ -101,7 +125,8 @@ export async function renameCategory(
   const normalized = normalizeCategoryName(newName);
 
   const existing = await Category.findOne({
-    userId: category.userId,
+    ownerId: category.ownerId,
+    ownerType: category.ownerType,
     nameKey: normalized,
     status: "active",
     _id: {$ne: category._id},
@@ -113,6 +138,7 @@ export async function renameCategory(
 
   category.name = normalized;
   category.nameKey = normalized;
+
   await category.save();
   return category;
 }
