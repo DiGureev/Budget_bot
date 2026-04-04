@@ -6,7 +6,7 @@ import {CategoryType} from "../types.js";
 
 export const WELCOME_MESSAGE = `<b>Welcome to the Spending Mirror Bot!</b>\n\nOur goal is to help you manage your monthly and annual spending. Please enter your <b>email</b> to create an account.`;
 
-export const ACCOUNT_CREATED_MESSAGE = `Account created 🎉\n\nNext step: create categories you want to track using ➕ Add new category button below. You can add up to 8 categories. 🚀`;
+export const ACCOUNT_CREATED_MESSAGE = `Account created 🎉\n\nNext step: create categories you want to track using "➕ Add new category" button below. You can add up to 8 categories. 🚀`;
 
 export const EMAIL_VALIDATION_ERROR = "Please enter a valid email address.";
 export const EMAIL_SAVE_ERROR = "Could not save your email. Please try again.";
@@ -36,7 +36,7 @@ export const CATEGORY_TYPE_CHOICE_MESSAGE = `Is this an annual or a monthly cate
 
 export const CATEGORY_CONFIRMATION_MESSAGE = (
   type: CategoryType,
-  categoryName: string
+  categoryName: string,
 ) => `You chose the ${type} type for "${categoryName}". Confirm?`;
 
 export const CATEGORY_CONFIRM_WARNING =
@@ -47,7 +47,7 @@ export const CATEGORY_TYPE_WARNING =
 
 export const CATEGORY_BUDGET_SET_MESSAGE = (
   type: CategoryType,
-  categoryName: string
+  categoryName: string,
 ) =>
   `What budget would you like to set for the ${type} category "${categoryName}"?`;
 
@@ -61,7 +61,7 @@ export const CATEGORY_BUDGET_VALIDATION_ERROR =
 export const CATEGORY_CREATED_MESSAGE = (
   categoryName: string,
   amount: string,
-  type: CategoryType = "monthly"
+  type: CategoryType = "monthly",
 ): string => {
   const typeText = type === "monthly" ? "monthly" : "annual";
   return `"${categoryName}" created with a ${typeText} budget of ${amount} shekels.`;
@@ -69,7 +69,7 @@ export const CATEGORY_CREATED_MESSAGE = (
 
 export const MAKE_DEFAULT_CATEGORY_MESSAGE = (
   categoryName: string,
-  amount: string
+  amount: string,
 ): string =>
   `${CATEGORY_CREATED_MESSAGE(categoryName, amount)}\n\nWould you like to set "${categoryName}" as the <b>default</b> category?\n\nIf set, you can simply send an amount (e.g. 200) and it will be added automatically.\n\nUseful for your most frequent category. You can change it later.`;
 

@@ -42,7 +42,6 @@ export function categoriesReplyKeyboard(
   categories: ICategory[],
   user: IUser,
 ): ReplyKeyboardMarkup {
-  console.log("I am here");
   // 1. Sort:
   // - Monthly first
   // - Higher budget first
