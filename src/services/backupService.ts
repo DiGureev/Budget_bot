@@ -1,23 +1,23 @@
-import BackupLog from '../models/BackupLog.js';
-import { getNowParts } from '../utils/dates.js';
-import { runDropboxBackup } from './dropboxBackupService.js';
-import { IBackupLog } from '../types.js';
+import BackupLog from "../models/BackupLog.js";
+import {getNowParts} from "../utils/dates.js";
+import {runDropboxBackup} from "./dropboxBackupService.js";
+import {IBackupLog} from "../types.js";
 
 export async function ensureDailyBackup(): Promise<IBackupLog | null> {
-  const { dateKey } = getNowParts();
+  const {dateKey} = getNowParts();
 
-  const existing = await BackupLog.findOne({ dateKey });
-  if (existing?.status === 'success') {
-    console.log('backup already exists');
+  const existing = await BackupLog.findOne({dateKey});
+  if (existing?.status === "success") {
+    console.log("backup already exists");
     return existing;
   }
 
   let log: IBackupLog | null;
   try {
     log = await BackupLog.findOneAndUpdate(
-      { dateKey },
+      {dateKey},
       {
-        status: 'running',
+        status: "running",
         startedAt: new Date(),
         finishedAt: null,
         error: null,
@@ -28,8 +28,8 @@ export async function ensureDailyBackup(): Promise<IBackupLog | null> {
       }
     );
   } catch (err) {
-    console.error('error creating backup log', err);
-    return BackupLog.findOne({ dateKey });
+    console.error("error creating backup log", err);
+    return BackupLog.findOne({dateKey});
   }
 
   if (!log) {
@@ -39,12 +39,12 @@ export async function ensureDailyBackup(): Promise<IBackupLog | null> {
   try {
     await runDropboxBackup();
 
-    log.status = 'success';
+    log.status = "success";
     log.finishedAt = new Date();
     await log.save();
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : 'Unknown backup error';
-    log.status = 'failed';
+    const message = err instanceof Error ? err.message : "Unknown backup error";
+    log.status = "failed";
     log.error = message;
     log.finishedAt = new Date();
     await log.save();

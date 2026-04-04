@@ -1,6 +1,6 @@
-import Category from '../models/Category.js';
-import { getNowParts, nextMonth, monthKey } from '../utils/dates.js';
-import {ICategory} from '../types.js'
+import Category from "../models/Category.js";
+import {getNowParts, nextMonth, monthKey} from "../utils/dates.js";
+import {ICategory} from "../types.js";
 
 export function trimArray<T>(arr: T[], limit: number): T[] {
   if (arr.length <= limit) return arr;
@@ -10,11 +10,11 @@ export function trimArray<T>(arr: T[], limit: number): T[] {
 type NowParts = ReturnType<typeof getNowParts>;
 
 export async function ensureUserPeriodsCurrent(userId: number): Promise<void> {
-  const categories = await Category.find({ userId, status: 'active' });
+  const categories = await Category.find({userId, status: "active"});
   const now = getNowParts();
 
   for (const category of categories) {
-    if (category.type === 'monthly') {
+    if (category.type === "monthly") {
       await ensureMonthlyCategoryCurrent(category, now);
     } else {
       await ensureAnnualCategoryCurrent(category, now);
@@ -26,7 +26,7 @@ export async function ensureMonthlyCategoryCurrent(
   category: ICategory,
   now: NowParts
 ): Promise<void> {
-  let { year, month } = category.period;
+  let {year, month} = category.period;
 
   if (month === null || year === undefined) return;
 
@@ -82,7 +82,9 @@ export async function ensureAnnualCategoryCurrent(
     raw instanceof Map
       ? raw
       : new Map(
-          Object.entries(raw ?? {}).map(([k, v]) => [k, Number(v)] as [string, number])
+          Object.entries(raw ?? {}).map(
+            ([k, v]) => [k, Number(v)] as [string, number]
+          )
         );
 
   const currentMonth = now.month;

@@ -1,18 +1,17 @@
-import { type IUser } from '../types.js';
-import { KIT_API_KEY, KIT_TAG_ID } from '../config/env.js';
-
+import {type IUser} from "../types.js";
+import {KIT_API_KEY, KIT_TAG_ID} from "../config/env.js";
 
 export async function submitEmailToKit(
   email: string,
   user: IUser
-): Promise<{ ok: boolean }> {
+): Promise<{ok: boolean}> {
   try {
     const response = await fetch(
       `https://api.convertkit.com/v3/tags/${KIT_TAG_ID}/subscribe`,
       {
-        method: 'POST',
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           api_key: KIT_API_KEY,
@@ -29,15 +28,15 @@ export async function submitEmailToKit(
     const data = await response.json();
 
     if (!response.ok) {
-      console.error('KIT ERROR', data);
-      return { ok: false };
+      console.error("KIT ERROR", data);
+      return {ok: false};
     }
 
-    console.log('KIT SUCCESS', data);
+    console.log("KIT SUCCESS", data);
 
-    return { ok: true };
+    return {ok: true};
   } catch (error) {
-    console.error('KIT FETCH ERROR', error);
-    return { ok: false };
+    console.error("KIT FETCH ERROR", error);
+    return {ok: false};
   }
 }

@@ -1,5 +1,5 @@
-import mongoose, { Schema, type Model } from 'mongoose';
-import { ICategory } from '../types.js';
+import mongoose, {Schema, type Model} from "mongoose";
+import {ICategory} from "../types.js";
 
 const MonthlyHistorySchema = new Schema(
   {
@@ -8,7 +8,7 @@ const MonthlyHistorySchema = new Schema(
     budget: Number,
     spent: Number,
   },
-  { _id: false }
+  {_id: false}
 );
 
 const AnnualYearHistorySchema = new Schema(
@@ -17,21 +17,21 @@ const AnnualYearHistorySchema = new Schema(
     budget: Number,
     spent: Number,
   },
-  { _id: false }
+  {_id: false}
 );
 
 const CategorySchema = new Schema<ICategory>(
   {
-    userId: { type: Number, required: true, index: true },
+    userId: {type: Number, required: true, index: true},
 
-    name: { type: String, required: true },
-    nameKey: { type: String, required: true },
+    name: {type: String, required: true},
+    nameKey: {type: String, required: true},
 
-    type: { type: String, enum: ['monthly', 'annual'], required: true },
-    status: { type: String, enum: ['active', 'archived'], default: 'active' },
+    type: {type: String, enum: ["monthly", "annual"], required: true},
+    status: {type: String, enum: ["active", "archived"], default: "active"},
 
-    currentBudget: { type: Number, required: true },
-    currentSpent: { type: Number, default: 0 },
+    currentBudget: {type: Number, required: true},
+    currentSpent: {type: Number, default: 0},
 
     period: {
       year: Number,
@@ -45,14 +45,17 @@ const CategorySchema = new Schema<ICategory>(
     },
 
     history: {
-      months: { type: [MonthlyHistorySchema], default: [] },
-      years: { type: [AnnualYearHistorySchema], default: [] },
+      months: {type: [MonthlyHistorySchema], default: []},
+      years: {type: [AnnualYearHistorySchema], default: []},
     },
   },
-  { timestamps: true }
+  {timestamps: true}
 );
 
-CategorySchema.index({ userId: 1, nameKey: 1, status: 1 }, { unique: true });
+CategorySchema.index({userId: 1, nameKey: 1, status: 1}, {unique: true});
 
-const Category: Model<ICategory> = mongoose.model<ICategory>('Category', CategorySchema);
+const Category: Model<ICategory> = mongoose.model<ICategory>(
+  "Category",
+  CategorySchema
+);
 export default Category;

@@ -1,15 +1,15 @@
-import type { Message } from 'node-telegram-bot-api';
-import User from '../models/User.js';
-import type { IUser } from '../types.js';
+import type {Message} from "node-telegram-bot-api";
+import User from "../models/User.js";
+import type {IUser} from "../types.js";
 
 export async function getOrCreateUser(msg: Message) {
   if (!msg.from) {
-    throw new Error('Message from is missing');
+    throw new Error("Message from is missing");
   }
   const telegramUserId = msg.from.id;
   const chatId = msg.chat.id;
 
-  let user = await User.findOne({ telegramUserId });
+  let user = await User.findOne({telegramUserId});
 
   if (!user) {
     user = await User.create({
@@ -22,12 +22,12 @@ export async function getOrCreateUser(msg: Message) {
         completed: false,
       },
       state: {
-        step: 'awaiting_email',
+        step: "awaiting_email",
         payload: {},
       },
       lastSeenAt: new Date(),
     });
-    return { user, isNew: true };
+    return {user, isNew: true};
   }
 
   user.chatId = chatId;
@@ -36,7 +36,7 @@ export async function getOrCreateUser(msg: Message) {
   user.lastSeenAt = new Date();
   await user.save();
 
-  return { user, isNew: false };
+  return {user, isNew: false};
 }
 
 export async function setUserState(
@@ -45,9 +45,9 @@ export async function setUserState(
   payload: Record<string, unknown> = {}
 ): Promise<IUser | null> {
   return User.findOneAndUpdate(
-    { telegramUserId: userId },
-    { $set: { state: { step, payload } } },
-    { new: true }
+    {telegramUserId: userId},
+    {$set: {state: {step, payload}}},
+    {new: true}
   );
 }
 
@@ -56,21 +56,27 @@ export async function setDefaultCategory(
   categoryId: string
 ): Promise<IUser | null> {
   return User.findOneAndUpdate(
-    { telegramUserId: userId },
-    { $set: { defaultCategoryId: categoryId } },
-    { new: true }
+    {telegramUserId: userId},
+    {$set: {defaultCategoryId: categoryId}},
+    {new: true}
   );
 }
 
-export async function getDefaultCategoryById(userId: number): Promise<string | null> {
-  const user = await User.findOne({ telegramUserId: userId }).select('defaultCategoryId');
+export async function getDefaultCategoryById(
+  userId: number
+): Promise<string | null> {
+  const user = await User.findOne({telegramUserId: userId}).select(
+    "defaultCategoryId"
+  );
   return user?.defaultCategoryId ?? null;
 }
 
-export async function clearDefaultCategory(userId: number): Promise<IUser | null> {
+export async function clearDefaultCategory(
+  userId: number
+): Promise<IUser | null> {
   return User.findOneAndUpdate(
-    { telegramUserId: userId },
-    { $set: { defaultCategoryId: null } },
-    { new: true }
+    {telegramUserId: userId},
+    {$set: {defaultCategoryId: null}},
+    {new: true}
   );
 }

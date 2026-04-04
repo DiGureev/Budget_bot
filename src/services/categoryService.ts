@@ -1,11 +1,10 @@
-import Category from '../models/Category.js';
-import { CategoryType, type ICategory } from '../types.js';
-import { getNowParts, monthKey } from '../utils/dates.js';
-import { normalizeCategoryName } from '../utils/normalize.js';
-
+import Category from "../models/Category.js";
+import {CategoryType, type ICategory} from "../types.js";
+import {getNowParts, monthKey} from "../utils/dates.js";
+import {normalizeCategoryName} from "../utils/normalize.js";
 
 export async function countActiveCategories(userId: number): Promise<number> {
-  return Category.countDocuments({ userId, status: 'active' });
+  return Category.countDocuments({userId, status: "active"});
 }
 
 export async function createCategory({
@@ -24,14 +23,14 @@ export async function createCategory({
   const existing = await Category.findOne({
     userId,
     nameKey: normalized,
-    status: 'active',
+    status: "active",
   });
 
   if (existing) {
-    throw new Error('CATEGORY_EXISTS');
+    throw new Error("CATEGORY_EXISTS");
   }
 
-  const { year, month } = getNowParts();
+  const {year, month} = getNowParts();
 
   const doc = {
     userId,
@@ -42,33 +41,40 @@ export async function createCategory({
     currentSpent: 0,
     period: {
       year,
-      month: type === 'monthly' ? month : null,
+      month: type === "monthly" ? month : null,
     },
     history: {
-      months: [] as ICategory['history']['months'],
-      years: [] as ICategory['history']['years'],
+      months: [] as ICategory["history"]["months"],
+      years: [] as ICategory["history"]["years"],
     },
-    ...(type === 'annual' ? { currentYearMonthlySpent: new Map<string, number>() } : {}),
+    ...(type === "annual"
+      ? {currentYearMonthlySpent: new Map<string, number>()}
+      : {}),
   };
 
   return Category.create(doc);
 }
 
-export async function getActiveCategories(userId: number): Promise<ICategory[]> {
-  return Category.find({ userId, status: 'active' }).sort({ createdAt: 1 });
+export async function getActiveCategories(
+  userId: number
+): Promise<ICategory[]> {
+  return Category.find({userId, status: "active"}).sort({createdAt: 1});
 }
 
 export async function getCategoryById(
   id: string,
   userId: number
 ): Promise<ICategory | null> {
-  return Category.findOne({ _id: id, userId });
+  return Category.findOne({_id: id, userId});
 }
 
-export async function applyAmount(category: ICategory, amount: number): Promise<ICategory> {
-  const { year, month } = getNowParts();
+export async function applyAmount(
+  category: ICategory,
+  amount: number
+): Promise<ICategory> {
+  const {year, month} = getNowParts();
 
-  if (category.type === 'monthly') {
+  if (category.type === "monthly") {
     category.currentSpent += amount;
   } else {
     category.currentSpent += amount;
@@ -83,23 +89,26 @@ export async function applyAmount(category: ICategory, amount: number): Promise<
 }
 
 export async function archiveCategory(category: ICategory): Promise<ICategory> {
-  category.status = 'archived';
+  category.status = "archived";
   await category.save();
   return category;
 }
 
-export async function renameCategory(category: ICategory, newName: string): Promise<ICategory> {
+export async function renameCategory(
+  category: ICategory,
+  newName: string
+): Promise<ICategory> {
   const normalized = normalizeCategoryName(newName);
 
   const existing = await Category.findOne({
     userId: category.userId,
     nameKey: normalized,
-    status: 'active',
-    _id: { $ne: category._id },
+    status: "active",
+    _id: {$ne: category._id},
   });
 
   if (existing) {
-    throw new Error('CATEGORY_EXISTS');
+    throw new Error("CATEGORY_EXISTS");
   }
 
   category.name = normalized;
@@ -117,12 +126,14 @@ export async function updateCategoryBudget(
   return category;
 }
 
-export async function resetCategorySpend(category: ICategory): Promise<ICategory> {
-  const { year, month } = getNowParts();
+export async function resetCategorySpend(
+  category: ICategory
+): Promise<ICategory> {
+  const {year, month} = getNowParts();
 
   category.currentSpent = 0;
 
-  if (category.type === 'annual') {
+  if (category.type === "annual") {
     const key = monthKey(year, month);
     category.currentYearMonthlySpent.set(key, 0);
   }
@@ -131,12 +142,14 @@ export async function resetCategorySpend(category: ICategory): Promise<ICategory
   return category;
 }
 
-export async function convertAnnualToMonthly(category: ICategory): Promise<ICategory> {
-  const { year, month } = getNowParts();
+export async function convertAnnualToMonthly(
+  category: ICategory
+): Promise<ICategory> {
+  const {year, month} = getNowParts();
 
-  category.type = 'monthly';
+  category.type = "monthly";
   category.currentSpent = 0;
-  category.period = { year, month };
+  category.period = {year, month};
   category.currentYearMonthlySpent = new Map();
   category.history.months = [];
 
