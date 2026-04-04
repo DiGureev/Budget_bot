@@ -1,4 +1,4 @@
-import mongoose, {HydratedDocument, Model, type Document,  } from 'mongoose';
+import {HydratedDocument,type Document,  } from 'mongoose';
 
 export interface IUser {
     telegramUserId: number;
