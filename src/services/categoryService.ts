@@ -156,3 +156,28 @@ export async function convertAnnualToMonthly(
   await category.save();
   return category;
 }
+
+export async function convertMonthlyToAnnual(
+  category: ICategory,
+): Promise<void> {
+  const yearlySpent = Array.from(
+    category.currentYearMonthlySpent.values(),
+  ).reduce((sum, val) => sum + val, 0);
+
+  category.type = "annual";
+
+  category.period = {year: category.period.year, month: null};
+
+  category.history.years.push({
+    year: category.period.year,
+    budget: category.currentBudget,
+    spent: yearlySpent,
+  });
+
+  category.currentSpent = yearlySpent;
+
+  category.currentYearMonthlySpent = new Map();
+  category.history.months = [];
+
+  await category.save();
+}

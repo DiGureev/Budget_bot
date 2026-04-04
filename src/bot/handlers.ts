@@ -10,6 +10,7 @@ import {
   archiveCategory,
   resetCategorySpend,
   convertAnnualToMonthly,
+  convertMonthlyToAnnual,
 } from "../services/categoryService.js";
 import {
   setDefaultCategory,
@@ -734,7 +735,7 @@ export async function handleCallback(
       await user.save();
     }
 
-    await convertAnnualToMonthly(category);
+    await convertMonthlyToAnnual(category);
 
     const categories = await getActiveCategories(user.telegramUserId);
 

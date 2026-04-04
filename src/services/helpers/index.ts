@@ -27,7 +27,7 @@ import {normalizeCategoryName} from "../../utils/normalize.js";
 import {parseAmount} from "../amountParser.js";
 
 export const setUpUserAndBackup = async (
-  msg: Message
+  msg: Message,
 ): Promise<UserDocument> => {
   if (!msg.from || !msg.chat) {
     throw new Error("Invalid message");
@@ -41,7 +41,7 @@ export const setUpUserAndBackup = async (
 
 export const submitEmail = async (
   email: string,
-  user: UserDocument
+  user: UserDocument,
 ): Promise<{ok: boolean; error?: string}> => {
   if (!isValidEmail(email)) {
     return {ok: false, error: EMAIL_VALIDATION_ERROR};
@@ -68,7 +68,7 @@ type CategoryNameResult =
 export const submitCategoryName = async (
   text: string,
   user: UserDocument,
-  activeCategories: ICategory[]
+  activeCategories: ICategory[],
 ): Promise<CategoryNameResult> => {
   const count = await countActiveCategories(user.telegramUserId);
 
@@ -82,7 +82,7 @@ export const submitCategoryName = async (
   const normalizedName = normalizeCategoryName(text);
 
   const existing = activeCategories.some(
-    (category) => category.name === normalizedName
+    (category) => category.name === normalizedName,
   );
 
   if (existing) {
@@ -104,7 +104,7 @@ type CreateCategoryResult =
 
 export const submitCategoryBudget = async (
   text: string,
-  user: UserDocument
+  user: UserDocument,
 ): Promise<CreateCategoryResult> => {
   const amount = parseAmount(text);
 
@@ -150,7 +150,7 @@ type ApplyAmountResult =
 
 export async function submitCategoryAmount(
   text: string,
-  user: UserDocument
+  user: UserDocument,
 ): Promise<ApplyAmountResult> {
   const amount = parseAmount(text);
 
@@ -159,7 +159,7 @@ export async function submitCategoryAmount(
   }
 
   const categoryId = String(
-    (user.state.payload as {categoryId?: string}).categoryId ?? ""
+    (user.state.payload as {categoryId?: string}).categoryId ?? "",
   );
 
   const category = await getCategoryById(categoryId, user.telegramUserId);
@@ -179,10 +179,10 @@ type RenameCategoryResult =
 
 export async function processRenameCategory(
   text: string,
-  user: UserDocument
+  user: UserDocument,
 ): Promise<RenameCategoryResult> {
   const categoryId = String(
-    (user.state.payload as {categoryId?: string}).categoryId ?? ""
+    (user.state.payload as {categoryId?: string}).categoryId ?? "",
   );
 
   const category = await getCategoryById(categoryId, user.telegramUserId);
@@ -214,7 +214,7 @@ type UpdateBudgetResult =
 
 export async function processCategoryBudgetUpdate(
   text: string,
-  user: UserDocument
+  user: UserDocument,
 ): Promise<UpdateBudgetResult> {
   const amount = parseAmount(text);
 
@@ -223,7 +223,7 @@ export async function processCategoryBudgetUpdate(
   }
 
   const categoryId = String(
-    (user.state.payload as {categoryId?: string}).categoryId ?? ""
+    (user.state.payload as {categoryId?: string}).categoryId ?? "",
   );
 
   const category = await getCategoryById(categoryId, user.telegramUserId);
@@ -238,29 +238,4 @@ export async function processCategoryBudgetUpdate(
   await user.save();
 
   return {ok: true, category, amount};
-}
-
-export async function convertMonthlyToAnnual(
-  category: ICategory
-): Promise<void> {
-  const yearlySpent = Array.from(
-    category.currentYearMonthlySpent.values()
-  ).reduce((sum, val) => sum + val, 0);
-
-  category.type = "annual";
-
-  category.period = {year: category.period.year, month: null};
-
-  category.history.years.push({
-    year: category.period.year,
-    budget: category.currentBudget,
-    spent: yearlySpent,
-  });
-
-  category.currentSpent = yearlySpent;
-
-  category.currentYearMonthlySpent = new Map();
-  category.history.months = [];
-
-  await category.save();
 }
