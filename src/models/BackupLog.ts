@@ -1,12 +1,5 @@
-import mongoose, { Schema, type Document, type Model } from 'mongoose';
-
-export interface IBackupLog extends Document {
-  dateKey: string;
-  status: 'running' | 'success' | 'failed';
-  startedAt: Date | null;
-  finishedAt: Date | null;
-  error: string | null;
-}
+import mongoose, { Schema, type Model } from 'mongoose';
+import { IBackupLog } from '../types.js';
 
 const BackupLogSchema = new Schema<IBackupLog>(
   {

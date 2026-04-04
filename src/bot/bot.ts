@@ -1,9 +1,7 @@
 import TelegramBot, { Message } from 'node-telegram-bot-api';
 import { TELEGRAM_BOT_TOKEN } from '../config/env.js';
-import { getOrCreateUser } from '../services/userService.js';
-import { ensureDailyBackup } from '../services/backupService.js';
-import { ensureUserPeriodsCurrent } from '../services/rolloverService.js';
-import { handleStart, handleText, handleCallback } from './handlers.js';
+import { handleStart, handleText, handleCallback, handleHelp } from './handlers.js';
+import { setUpUserAndBackup } from '../services/helpers/index.js';
 
 export function createBot(): TelegramBot {
   if (!TELEGRAM_BOT_TOKEN) {
@@ -13,21 +11,31 @@ export function createBot(): TelegramBot {
   const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
 
   bot.onText(/\/start/, async (msg) => {
-    if (!msg.from || !msg.chat) return;
-    const { user } = await getOrCreateUser(msg);
-    await ensureDailyBackup();
-    await ensureUserPeriodsCurrent(user.telegramUserId);
+    try {
+    const user = await setUpUserAndBackup(msg);
     await handleStart(bot, msg, user);
+    } catch (error) {
+      console.error('Error handling start command:', error);
+    }
+  });
+
+  bot.onText(/\/help/, async (msg) => {
+    try { 
+    const user = await setUpUserAndBackup(msg);
+    await handleHelp(bot, msg, user);
+    } catch (error) {
+      console.error('Error handling help command:', error);
+    }
   });
 
   bot.on('message', async (msg) => {
-    if (!msg.text || msg.text.startsWith('/start')) return;
-    if (!msg.from || !msg.chat) return;
-
-    const { user } = await getOrCreateUser(msg);
-    await ensureDailyBackup();
-    await ensureUserPeriodsCurrent(user.telegramUserId);
+    if (!msg.text || msg.text.startsWith('/')) return;
+    try {
+    const user = await setUpUserAndBackup(msg);
     await handleText(bot, msg, user);
+    } catch (error) {
+      console.error('Error handling text command:', error);
+    }
   });
 
   bot.on('callback_query', async (query) => {
@@ -40,11 +48,13 @@ export function createBot(): TelegramBot {
       date: query.message.date,
     };
 
-    const { user } = await getOrCreateUser(msg);
-    await ensureDailyBackup();
-    await ensureUserPeriodsCurrent(user.telegramUserId);
+    try {
+    const user = await setUpUserAndBackup(msg);
     await handleCallback(bot, query, user);
     await bot.answerCallbackQuery(query.id);
+    } catch (error) {
+      console.error('Error handling callback query:', error);
+    }
   });
 
   return bot;

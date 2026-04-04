@@ -1,6 +1,7 @@
-import BackupLog, { type IBackupLog } from '../models/BackupLog.js';
+import BackupLog from '../models/BackupLog.js';
 import { getNowParts } from '../utils/dates.js';
-import { runGoogleBackup } from './googleBackupService.js';
+import { runDropboxBackup } from './dropboxBackupService.js';
+import { IBackupLog } from '../types.js';
 
 export async function ensureDailyBackup(): Promise<IBackupLog | null> {
   const { dateKey } = getNowParts();
@@ -36,7 +37,7 @@ export async function ensureDailyBackup(): Promise<IBackupLog | null> {
   }
 
   try {
-    await runGoogleBackup();
+    await runDropboxBackup();
 
     log.status = 'success';
     log.finishedAt = new Date();

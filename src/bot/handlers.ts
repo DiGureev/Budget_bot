@@ -1,7 +1,6 @@
 import type TelegramBot from 'node-telegram-bot-api';
 import type { CallbackQuery, Message } from 'node-telegram-bot-api';
-import type { ICategory } from '../models/Category.js';
-import type { IUser, UserDocument } from '../models/User.js';
+import { type ICategory, type UserDocument } from '../types.js';
 import { isValidEmail } from '../utils/validators.js';
 import { normalizeCategoryName } from '../utils/normalize.js';
 import { parseAmount } from '../services/amountParser.js';
@@ -586,7 +585,7 @@ export async function handleCallback(
     const category = await getCategoryById(categoryId, user.telegramUserId);
   
     if (!category || category.type !== 'monthly' || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
+      await bot.sendMessage(chatId, CATEGORY_NOT_FOUND_ERROR, { parse_mode: 'HTML' });
       return;
     }
   
@@ -643,7 +642,7 @@ export async function handleCallback(
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
+      await bot.sendMessage(chatId, CATEGORY_NOT_FOUND_ERROR, { parse_mode: 'HTML' });
       return;
     }
 
@@ -669,7 +668,7 @@ export async function handleCallback(
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
+      await bot.sendMessage(chatId, CATEGORY_NOT_FOUND_ERROR, { parse_mode: 'HTML' });
       return;
     }
 
@@ -692,7 +691,7 @@ export async function handleCallback(
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
+      await bot.sendMessage(chatId, CATEGORY_NOT_FOUND_ERROR, { parse_mode: 'HTML' });
       return;
     }
 
@@ -740,7 +739,7 @@ export async function handleCallback(
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
+      await bot.sendMessage(chatId, CATEGORY_NOT_FOUND_ERROR, { parse_mode: 'HTML' });
       return;
     }
 
@@ -769,9 +768,7 @@ export async function handleCallback(
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active' || category.type !== 'annual') {
-      await bot.answerCallbackQuery(query.id, {
-        text: 'Category cannot be converted.',
-      });
+      await bot.sendMessage(chatId, 'Category cannot be converted.', { parse_mode: 'HTML' });
       return;
     }
 
@@ -800,9 +797,7 @@ export async function handleCallback(
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active' || category.type !== 'monthly') {
-      await bot.answerCallbackQuery(query.id, {
-        text: 'Only monthly categories can be default.',
-      });
+      await bot.sendMessage(chatId, 'Only monthly categories can be default.', { parse_mode: 'HTML' });
       return;
     }
 
@@ -852,7 +847,7 @@ export async function handleCallback(
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
+      await bot.sendMessage(chatId, CATEGORY_NOT_FOUND_ERROR, { parse_mode: 'HTML' });
       return;
     }
 
@@ -869,7 +864,7 @@ export async function handleCallback(
     const category = await getCategoryById(categoryId, user.telegramUserId);
 
     if (!category || category.status !== 'active') {
-      await bot.answerCallbackQuery(query.id, { text: CATEGORY_NOT_FOUND_ERROR });
+      await bot.sendMessage(chatId, CATEGORY_NOT_FOUND_ERROR, { parse_mode: 'HTML' });
       return;
     }
 
@@ -893,5 +888,5 @@ export async function handleCallback(
     return;
   }
 
-  await bot.answerCallbackQuery(query.id, { text: 'Unknown action' });
+  await bot.sendMessage(chatId, 'Unknown action', { parse_mode: 'HTML' });
 }

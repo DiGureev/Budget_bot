@@ -1,36 +1,5 @@
-import mongoose, { Schema, type Document, type Model } from 'mongoose';
-
-export interface IMonthlyHistoryEntry {
-  year: number;
-  month: number;
-  budget: number;
-  spent: number;
-}
-
-export interface IAnnualYearHistoryEntry {
-  year: number;
-  budget: number;
-  spent: number;
-}
-
-export interface ICategory extends Document {
-  userId: number;
-  name: string;
-  nameKey: string;
-  type: 'monthly' | 'annual';
-  status: 'active' | 'archived';
-  currentBudget: number;
-  currentSpent: number;
-  period: {
-    year: number;
-    month: number | null;
-  };
-  currentYearMonthlySpent: Map<string, number>;
-  history: {
-    months: IMonthlyHistoryEntry[];
-    years: IAnnualYearHistoryEntry[];
-  };
-}
+import mongoose, { Schema, type Model } from 'mongoose';
+import { ICategory } from '../types.js';
 
 const MonthlyHistorySchema = new Schema(
   {

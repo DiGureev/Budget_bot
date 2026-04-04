@@ -1,24 +1,6 @@
 // src/models/User.js
-import mongoose, { HydratedDocument } from 'mongoose';
-
-export type UserDocument = HydratedDocument<IUser>;
-
-export interface IUser {
-  telegramUserId: number;
-  chatId: number;
-  username: string | null;
-  firstName: string | null;
-  onboarding: {
-    emailSubmitted: boolean;
-    completed: boolean;
-  };
-  defaultCategoryId: string | null;
-  state: {
-    step: string | null;
-    payload: Record<string, unknown>;
-  };
-  lastSeenAt: Date | null;
-}
+import mongoose from 'mongoose';
+import { IUser } from '../types.js';
 
 const UserStateSchema = new mongoose.Schema(
   {
