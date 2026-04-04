@@ -1,5 +1,6 @@
 import {HydratedDocument,type Document,  } from 'mongoose';
 
+export type CategoryType = 'monthly' | 'annual'
 export interface IUser {
     telegramUserId: number;
     chatId: number;
@@ -38,7 +39,7 @@ export interface IMonthlyHistoryEntry {
     userId: number;
     name: string;
     nameKey: string;
-    type: 'monthly' | 'annual';
+    type: CategoryType;
     status: 'active' | 'archived';
     currentBudget: number;
     currentSpent: number;

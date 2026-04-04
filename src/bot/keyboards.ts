@@ -61,6 +61,7 @@ export function categoriesReplyKeyboard(
 
 export function categoryActionsKeyboard(category: ICategory) {
   return {
+    
     inline_keyboard: [
       [
         { text: 'History', callback_data: `history:${String(category._id)}` },
@@ -116,6 +117,10 @@ export function editCategoryKeyboard(category: ICategory, isDefault: boolean) {
         callback_data: isDefault
           ? `unset_default:${String(category._id)}`
           : `set_default:${String(category._id)}`,
+      },
+      {
+        text: 'Convert to Annual',
+        callback_data: `edit_convert_to_annual:${String(category._id)}`,
       },
     ]);
   }

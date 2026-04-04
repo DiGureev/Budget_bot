@@ -1,6 +1,6 @@
 import type TelegramBot from 'node-telegram-bot-api';
 import type { CallbackQuery, Message } from 'node-telegram-bot-api';
-import { type ICategory, type UserDocument } from '../types.js';
+import { CategoryType, type ICategory, type UserDocument } from '../types.js';
 import { parseAmount } from '../services/amountParser.js';
 import {
   countActiveCategories,
@@ -59,7 +59,8 @@ import {
   CATEGORY_CONVERTED_TO_MONTHLY_MESSAGE,
   SET_DEFAULT_ERROR,
   DEFAULT_CATEGORY_REMOVED,
-  CATEGORY_REMOVED
+  CATEGORY_REMOVED,
+  CATEGORY_CONVERTED_TO_ANNUAL_MESSAGE
 } from './constants.js';
 import { processCategoryBudgetUpdate, processRenameCategory, submitCategoryAmount, submitCategoryBudget, submitCategoryName, submitEmail } from '../services/helpers/index.js';
 
@@ -132,23 +133,67 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
   const step = user.state?.step;
 
   const activeCategories = await getActiveCategories(user.telegramUserId);
-
   const hasCategories = activeCategories.length > 0;
-
+console.log(step)
   if (user.onboarding.completed && !hasCategories && step === null && text !== ADD_NEW_CATEGORY_MESSAGE) {
     await bot.sendMessage(
       msg.chat.id,
       CREATE_CATEGORY_WARNING,
-      { parse_mode: 'HTML'},
+      { parse_mode: 'HTML' },
     );
     return;
   }
 
+  const selectedCategory = activeCategories.find(
+    (category) => text === getCategoryButtonLabel(category, user)
+  );
 
-  if (step === STEPS.EMAIL ) {
-    const email = text;
+  if (selectedCategory) {
+    user.state = {
+      step: STEPS.CATEGORY_AMOUNT,
+      payload: { categoryId: String(selectedCategory._id) },
+    };
+    await user.save();
 
-    const result = await submitEmail(email, user)
+    await bot.sendMessage(
+      msg.chat.id,
+      formatCategoryDetails(selectedCategory),
+      {
+        reply_markup: categoryActionsKeyboard(selectedCategory),
+      }
+    );
+    return;
+  }
+
+  if (text === ADD_NEW_CATEGORY_MESSAGE) {
+    const count = await countActiveCategories(user.telegramUserId);
+
+    if (count >= 8) {
+      await bot.sendMessage(
+        msg.chat.id,
+        CATEGORIES_LIMIT_REACHED_ERROR,
+        { parse_mode: 'HTML', ...categoryKeyboardOptions(activeCategories, user) }
+      );
+      return;
+    }
+
+    user.state = { step: STEPS.CATEGORY_NAME_SET, payload: {} };
+    await user.save();
+
+    await bot.sendMessage(
+      msg.chat.id,
+      ENTER_CATEGORY_NAME_MESSAGE,
+      {
+        parse_mode: 'HTML',
+        reply_markup: { remove_keyboard: true },
+      }
+    );
+    return;
+  }
+
+  if (step === STEPS.EMAIL) {
+    const result = await submitEmail(text, user);
+
     if (!result.ok) {
       await bot.sendMessage(msg.chat.id, result.error ?? "Error");
       return;
@@ -166,30 +211,23 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
   }
 
   if (step === STEPS.DEFAULT_CATEGORY_CONFIRMATION) {
-    await bot.sendMessage(
-      msg.chat.id,
-      CATEGORY_CONFIRM_WARNING
-    );
+    await bot.sendMessage(msg.chat.id, CATEGORY_CONFIRM_WARNING);
     return;
   }
 
   if (step === STEPS.CATEGORY_TYPE_CONFIRMATION) {
-    await bot.sendMessage(
-      msg.chat.id,
-      CATEGORY_TYPE_WARNING
-    );
+    await bot.sendMessage(msg.chat.id, CATEGORY_TYPE_WARNING);
     return;
   }
 
   if (step === STEPS.CATEGORY_NAME_SET) {
     const result = await submitCategoryName(text, user, activeCategories);
+
     if (!result.ok) {
-      await bot.sendMessage(
-        msg.chat.id,
-        result.error,
-        { parse_mode: 'HTML' }
-      );
+      await bot.sendMessage(msg.chat.id, result.error, { parse_mode: 'HTML' });
+      return; // ✅ FIX (missing before)
     }
+
     await bot.sendMessage(
       msg.chat.id,
       CATEGORY_TYPE_CHOICE_MESSAGE,
@@ -231,14 +269,18 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
       return;
     }
 
-    // annual
     const categories = await getActiveCategories(user.telegramUserId);
 
     await bot.sendMessage(
       msg.chat.id,
       CATEGORY_CREATED_MESSAGE(category.name, formatMoney(amount), 'annual'),
-      { parse_mode: 'HTML', ...categoryKeyboardOptions(categories, user) }
+      {
+        parse_mode: 'HTML',
+        ...categoryKeyboardOptions(categories, user),
+      }
     );
+
+    return; 
   }
 
   if (step === STEPS.CATEGORY_AMOUNT) {
@@ -258,8 +300,10 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
         ...categoryKeyboardOptions(categories, user),
       }
     );
+
     return;
   }
+
 
   if (step === STEPS.RENAME) {
     const result = await processRenameCategory(text, user);
@@ -268,9 +312,9 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
       await bot.sendMessage(msg.chat.id, result.error, { parse_mode: 'HTML' });
       return;
     }
-    
+
     const categories = await getActiveCategories(user.telegramUserId);
-    
+
     await bot.sendMessage(
       msg.chat.id,
       `Category renamed to "${result.normalizedName}".`,
@@ -286,7 +330,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
       await bot.sendMessage(msg.chat.id, result.error, { parse_mode: 'HTML' });
       return;
     }
-    
+
     await bot.sendMessage(
       msg.chat.id,
       `Budget updated to ${formatMoney(result.amount)}.`,
@@ -297,74 +341,23 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
     return;
   }
 
-  if (step === STEPS.CATEGORY_TYPE){
+  if (step === STEPS.CATEGORY_TYPE) {
     await bot.sendMessage(msg.chat.id, CHOOSE_CATEGORY_TYPE_MESSAGE);
     return;
   }
 
-  if (!step && text === ADD_NEW_CATEGORY_MESSAGE) {
-    const count = await countActiveCategories(user.telegramUserId);
+  if (!step) {
+    const amount = parseAmount(text);
 
-    if (count >= 8) {
-      await bot.sendMessage(
-        msg.chat.id,
-        CATEGORIES_LIMIT_REACHED_ERROR,
-        { parse_mode: 'HTML', ...categoryKeyboardOptions(activeCategories, user) },
-
-      );
+    if (amount === null) {
+      await bot.sendMessage(msg.chat.id, 'Unknown input.');
       return;
     }
 
-    user.state = { step: STEPS.CATEGORY_NAME_SET, payload: {} };
-    await user.save();
-
-    await bot.sendMessage(
-      msg.chat.id,
-      ENTER_CATEGORY_NAME_MESSAGE,
-      {
-        parse_mode: 'HTML',
-        reply_markup: {
-          remove_keyboard: true,
-        },
-      }
-    );
-    return;
-  }
-
-
-  if (!step) {
-    const selectedCategory = activeCategories.find(
-    (category) => text === getCategoryButtonLabel(category, user)
-  );
-    
-  if (selectedCategory) {
-    user.state = {
-      step: STEPS.CATEGORY_AMOUNT,
-      payload: { categoryId: String(selectedCategory._id) },
-    };
-    await user.save();
-  
-    await bot.sendMessage(
-      msg.chat.id,
-      formatCategoryDetails(selectedCategory),
-      {
-        reply_markup: categoryActionsKeyboard(selectedCategory),
-      }
-    );
-    return;
-  }
-
-  const amount = parseAmount(text);
-
-  if (amount === null) {
-    await bot.sendMessage(msg.chat.id, 'Unknown input.');
-    return;
-  }
-  
-  if (amount <= 0) {
-    await bot.sendMessage(msg.chat.id, AMOUNT_VALIDATION_ERROR);
-    return;
-  }
+    if (amount <= 0) {
+      await bot.sendMessage(msg.chat.id, AMOUNT_VALIDATION_ERROR);
+      return;
+    }
 
     if (!user.defaultCategoryId) {
       await bot.sendMessage(
@@ -400,11 +393,14 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
       msg.chat.id,
       formatCategoryDetails(category, false),
       {
-        ...categoryKeyboardOptions(categories, user)
+        ...categoryKeyboardOptions(categories, user),
       }
     );
+
     return;
   }
+
+  await bot.sendMessage(msg.chat.id, 'Unknown input.');
 }
 
 export async function handleCallback(
@@ -420,7 +416,7 @@ export async function handleCallback(
   const messageId = query.message.message_id;
 
   if (data.startsWith('cat_type:')) {
-    const type = data.split(':')[1] as 'monthly' | 'annual';
+    const type = data.split(':')[1] as CategoryType;
   
     user.state = {
       step: STEPS.CATEGORY_TYPE_CONFIRMATION,
@@ -441,6 +437,7 @@ export async function handleCallback(
     const payloadName = String(
       (user.state.payload as { name?: string }).name ?? ''
     );
+
     await bot.sendMessage(
       chatId,
       CATEGORY_CONFIRMATION_MESSAGE(type, payloadName),
@@ -457,7 +454,7 @@ export async function handleCallback(
   }
 
   if (data.startsWith('confirm_cat_type:')) {
-    const type = data.split(':')[1] as 'monthly' | 'annual';
+    const type = data.split(':')[1] as CategoryType;
 
     user.state = {
       step: STEPS.CATEGORY_BUGDET_SET,
@@ -468,10 +465,13 @@ export async function handleCallback(
     };
     await user.save();
 
-    await bot.editMessageReplyMarkup(
-      { inline_keyboard: [] },
-      { chat_id: chatId, message_id: messageId }
-    );
+    await bot.editMessageText(`Type is set`, {
+      chat_id: chatId,
+      message_id: messageId,
+      reply_markup: {
+        inline_keyboard: [],
+      },
+    });
 
     const budgetPayloadName = String(
       (user.state.payload as { name?: string }).name ?? ''
@@ -693,6 +693,35 @@ export async function handleCallback(
       "💰",
       categoryKeyboardOptions(categories, user)
     );
+    return;
+  }
+
+  if (data.startsWith('edit_convert_to_annual:')){
+    const categoryId = data.split(':')[1];
+    const category = await getCategoryById(categoryId, user.telegramUserId);
+
+    if (!category || category.status !== 'active' || category.type !== 'monthly') {
+      await bot.sendMessage(chatId, CATEGORY_TYPE_CONVERT_ERROR, { parse_mode: 'HTML' });
+      return;
+    }
+
+    // If this was the default category, clear it — annual can't be default
+    if (user.defaultCategoryId && String(user.defaultCategoryId) === String(category._id)) {
+      await clearDefaultCategory(user.telegramUserId);
+      user.defaultCategoryId = null;
+      await user.save();
+    }
+
+    await convertAnnualToMonthly(category)
+    
+    const categories = await getActiveCategories(user.telegramUserId);
+
+    await bot.editMessageText(
+      CATEGORY_CONVERTED_TO_ANNUAL_MESSAGE(category.name),
+      { chat_id: chatId, message_id: messageId }
+    );
+
+    await bot.sendMessage(chatId, "💰", categoryKeyboardOptions(categories, user));
     return;
   }
 

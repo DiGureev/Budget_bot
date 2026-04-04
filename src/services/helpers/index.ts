@@ -2,7 +2,7 @@ import { Message } from "node-telegram-bot-api";
 import { ensureDailyBackup } from "../../services/backupService.js";
 import { ensureUserPeriodsCurrent } from "../../services/rolloverService.js";
 import { getOrCreateUser } from "../../services/userService.js";
-import { ICategory, type UserDocument } from "../../types.js";
+import { CategoryType, ICategory, type UserDocument } from "../../types.js";
 import { isValidEmail } from "../../utils/validators.js";
 import { submitEmailToKit } from "../kitService.js";
 import { AMOUNT_VALIDATION_ERROR, CATEGORIES_LIMIT_REACHED_ERROR, CATEGORY_BUDGET_VALIDATION_ERROR, CATEGORY_NAME_EXISTS_ERROR, CATEGORY_NOT_FOUND_ERROR, CREATE_CATEGORY_ERROR, EMAIL_SAVE_ERROR, EMAIL_VALIDATION_ERROR } from "../../bot/constants.js";
@@ -80,7 +80,7 @@ export const submitEmail = async (email: string, user: UserDocument): Promise<{ 
 
 
 type CreateCategoryResult =
-| { ok: true; category: ICategory; type: 'monthly' | 'annual'; amount: number }
+| { ok: true; category: ICategory; type: CategoryType; amount: number }
 | { ok: false; error: string };
 
 export const submitCategoryBudget = async (
@@ -95,7 +95,7 @@ export const submitCategoryBudget = async (
 
   const { name, type } = user.state.payload as {
     name: string;
-    type: 'monthly' | 'annual';
+    type: CategoryType;
   };
 
   try {
@@ -222,4 +222,26 @@ export async function processCategoryBudgetUpdate(
   await user.save();
 
   return { ok: true, category, amount };
+}
+
+export async function convertMonthlyToAnnual(category: ICategory): Promise<void> {
+  const yearlySpent = Array.from(category.currentYearMonthlySpent.values())
+    .reduce((sum, val) => sum + val, 0);
+
+  category.type = 'annual';
+
+  category.period = { year: category.period.year, month: null };
+
+  category.history.years.push({
+    year: category.period.year,
+    budget: category.currentBudget,
+    spent: yearlySpent,
+  });
+
+  category.currentSpent = yearlySpent;
+
+  category.currentYearMonthlySpent = new Map();
+  category.history.months = [];
+
+  await category.save();
 }
