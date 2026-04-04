@@ -10,6 +10,7 @@ import {
   archiveCategory,
   resetCategorySpend,
   convertAnnualToMonthly,
+  convertMonthlyToAnnual,
 } from "../services/categoryService.js";
 import {
   setDefaultCategory,
@@ -43,7 +44,6 @@ import {
   CATEGORY_CREATED_MESSAGE,
   MAKE_DEFAULT_CATEGORY_MESSAGE,
   DEFAULT_CATEGORY_SET_MESSAGE,
-  AMOUNT_VALIDATION_ERROR,
   CATEGORY_NOT_FOUND_ERROR,
   NOT_DEFAULT_CATEGORY_ERROR,
   HELP_MESSAGE,
@@ -761,7 +761,7 @@ export async function handleCallback(
       await user.save();
     }
 
-    await convertAnnualToMonthly(category);
+    await convertMonthlyToAnnual(category);
 
     const categories = await getActiveCategories(context);
 
