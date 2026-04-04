@@ -1,21 +1,37 @@
 import type TelegramBot from "node-telegram-bot-api";
-import type {Message} from "node-telegram-bot-api";
-import {type ICategory, type UserDocument} from "../types.js";
+import type {CallbackQuery, Message} from "node-telegram-bot-api";
+import {CategoryType, type ICategory, type UserDocument} from "../types.js";
 import {parseAmount} from "../services/amountParser.js";
 import {
   countActiveCategories,
   getActiveCategories,
   getCategoryById,
   applyAmount,
+  archiveCategory,
+  resetCategorySpend,
+  convertAnnualToMonthly,
 } from "../services/categoryService.js";
-import {getDefaultCategoryById, getContext} from "../services/userService.js";
+import {
+  setDefaultCategory,
+  clearDefaultCategory,
+  getDefaultCategoryById,
+  getContext,
+} from "../services/userService.js";
 import {
   getCategoryButtonLabel,
   categoriesReplyKeyboard,
   categoryActionsKeyboard,
   defaultChoiceKeyboard,
+  editCategoryKeyboard,
+  confirmRemoveKeyboard,
 } from "./keyboards.js";
-import {formatCategoryDetails, formatMoney} from "./messages.js";
+import {
+  formatCategoryDetails,
+  formatMonthlyHistory,
+  formatAnnualHistory,
+  formatRemovePrompt,
+  formatMoney,
+} from "./messages.js";
 import {
   WELCOME_MESSAGE,
   ACCOUNT_CREATED_MESSAGE,
@@ -23,15 +39,36 @@ import {
   BOT_STARTED_MESSAGE,
   CATEGORIES_LIMIT_REACHED_ERROR,
   ENTER_CATEGORY_NAME_MESSAGE,
+  CATEGORY_TYPE_CHOICE_MESSAGE,
   CATEGORY_CREATED_MESSAGE,
   MAKE_DEFAULT_CATEGORY_MESSAGE,
+  DEFAULT_CATEGORY_SET_MESSAGE,
+  AMOUNT_VALIDATION_ERROR,
+  CATEGORY_NOT_FOUND_ERROR,
   NOT_DEFAULT_CATEGORY_ERROR,
   HELP_MESSAGE,
+  CATEGORY_CONFIRM_WARNING,
+  CATEGORY_TYPE_WARNING,
+  CHOOSE_CATEGORY_TYPE_MESSAGE,
   CREATE_CATEGORY_WARNING,
+  CATEGORY_CONFIRMATION_MESSAGE,
+  CATEGORY_BUDGET_SET_MESSAGE,
+  SEND_CATEGORY_NAME_MESSAGE,
+  SEND_NEW_BUDGET_MESSAGE,
+  BUDGET_RESET_MESSAGE,
+  CATEGORY_TYPE_CONVERT_ERROR,
+  CATEGORY_CONVERTED_TO_MONTHLY_MESSAGE,
+  SET_DEFAULT_ERROR,
+  DEFAULT_CATEGORY_REMOVED,
+  CATEGORY_REMOVED,
+  CATEGORY_CONVERTED_TO_ANNUAL_MESSAGE,
 } from "./constants.js";
 import {
+  processCategoryBudgetUpdate,
+  processRenameCategory,
   submitCategoryAmount,
   submitCategoryBudget,
+  submitCategoryName,
   submitEmail,
 } from "../services/helpers/index.js";
 
@@ -107,6 +144,7 @@ export async function handleText(
   user: UserDocument,
 ): Promise<void> {
   const context = getContext(msg);
+
   const text = (msg.text || "").trim();
   let step = user.state?.step;
 
@@ -178,24 +216,6 @@ export async function handleText(
     return;
   }
 
-  if (step === STEPS.EMAIL) {
-    const result = await submitEmail(text, user);
-
-    if (!result.ok) {
-      await bot.sendMessage(msg.chat.id, result.error ?? "Error");
-      return;
-    }
-
-    const categories = await getActiveCategories(context);
-
-    await bot.sendMessage(msg.chat.id, ACCOUNT_CREATED_MESSAGE, {
-      parse_mode: "HTML",
-      ...categoryKeyboardOptions(categories, user),
-    });
-
-    return;
-  }
-
   if (step === STEPS.CATEGORY_BUGDET_SET) {
     const result = await submitCategoryBudget(text, user, context);
 
@@ -249,41 +269,6 @@ export async function handleText(
         ...categoryKeyboardOptions(categories, user),
       },
     );
-
-    return;
-  }
-
-  if (!step) {
-    const amount = parseAmount(text);
-
-    if (amount === null) {
-      await bot.sendMessage(msg.chat.id, "Unknown input.");
-      return;
-    }
-
-    if (!user.defaultCategoryId) {
-      await bot.sendMessage(msg.chat.id, NOT_DEFAULT_CATEGORY_ERROR, {
-        parse_mode: "HTML",
-      });
-      return;
-    }
-
-    const category = await getCategoryById(user.defaultCategoryId, context);
-
-    if (!category) {
-      await bot.sendMessage(msg.chat.id, NOT_DEFAULT_CATEGORY_ERROR, {
-        parse_mode: "HTML",
-      });
-      return;
-    }
-
-    await applyAmount(category, amount);
-
-    const categories = await getActiveCategories(context);
-
-    await bot.sendMessage(msg.chat.id, formatCategoryDetails(category, false), {
-      ...categoryKeyboardOptions(categories, user),
-    });
 
     return;
   }
