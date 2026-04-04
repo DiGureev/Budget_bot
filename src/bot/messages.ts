@@ -17,14 +17,14 @@ export function formatCategoryLine(category: ICategory, user: IUser): string {
 
 export function formatCategoryDetails(
   category: ICategory,
-  showButtons: boolean = true
+  showButtons: boolean = true,
 ): string {
   const spent = Number(category.currentSpent || 0);
   const budget = Number(category.currentBudget || 0);
   const remaining = budget - spent;
   const label = category.type === "annual" ? "Annual Budget" : "Monthly Budget";
 
-  return `${category.name} · ${label}: ${formatMoney(budget)}\n\nSpent: ${formatMoney(spent)}\nRemaining: ${formatMoney(remaining)}\n\nEnter a spending for category "${category.name}".${showButtons ? " Or choose another action using the buttons below." : ""}`;
+  return `${category.name} · ${label}: ${formatMoney(budget)}\n\nSpent: ${formatMoney(spent)}\nRemaining: ${formatMoney(remaining)}.${showButtons ? `\n\nEnter a spending for category "${category.name}" Or choose another action using the buttons below.` : ""}`;
 }
 
 export function formatMonthlyHistory(category: ICategory): string {
@@ -64,7 +64,7 @@ export function formatAnnualHistory(category: ICategory): string {
     .sort((a, b) => b.year - a.year)
     .map(
       (item) =>
-        `${item.year} — ${formatMoney(item.spent)}/${formatMoney(item.budget)}`
+        `${item.year} — ${formatMoney(item.spent)}/${formatMoney(item.budget)}`,
     );
 
   const spent = Number(category.currentSpent || 0);
@@ -96,7 +96,7 @@ export function monthName(month: number): string {
 }
 
 export function mapEntries(
-  mapLike: Map<string, number> | Record<string, number> | undefined
+  mapLike: Map<string, number> | Record<string, number> | undefined,
 ) {
   if (!mapLike) return [];
   if (
@@ -110,6 +110,6 @@ export function mapEntries(
     ([key, value]) => ({
       key,
       value,
-    })
+    }),
   );
 }

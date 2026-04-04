@@ -307,6 +307,8 @@ export async function handleText(
       },
     );
 
+    resetUser(user);
+
     return;
   }
 
