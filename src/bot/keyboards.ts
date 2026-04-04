@@ -65,9 +65,13 @@ export function categoryActionsKeyboard(category: ICategory) {
     inline_keyboard: [
       [
         { text: '📊 History', callback_data: `history:${String(category._id)}` },
-        { text: '✏️ Edit', callback_data: `edit:${String(category._id)}` },
-        { text: '🪣 Remove', callback_data: `remove:${String(category._id)}` },
       ],
+      [
+        { text: '✏️ Edit', callback_data: `edit:${String(category._id)}` },
+      ],
+      [        
+        { text: '🪣 Remove', callback_data: `remove:${String(category._id)}` },
+      ]
     ],
   };
 }
@@ -118,11 +122,13 @@ export function editCategoryKeyboard(category: ICategory, isDefault: boolean) {
           ? `unset_default:${String(category._id)}`
           : `set_default:${String(category._id)}`,
       },
+    ]);
+    rows.push([
       {
         text: '🔃  Convert to Annual',
         callback_data: `edit_convert_to_annual:${String(category._id)}`,
-      },
-    ]);
+      }
+    ])
   }
 
   rows.push([{ text: '⬅️ Back', callback_data: `open_category:${String(category._id)}` }]);
