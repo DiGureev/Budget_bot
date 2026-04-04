@@ -1,6 +1,6 @@
 import Category from "../models/Category.js";
 import {getNowParts, nextMonth, monthKey} from "../utils/dates.js";
-import {ICategory} from "../types.js";
+import {ICategory, type Context} from "../types.js";
 
 export function trimArray<T>(arr: T[], limit: number): T[] {
   if (arr.length <= limit) return arr;
@@ -8,11 +8,6 @@ export function trimArray<T>(arr: T[], limit: number): T[] {
 }
 
 type NowParts = ReturnType<typeof getNowParts>;
-
-type Context = {
-  ownerId: number;
-  ownerType: "user" | "group";
-};
 
 export async function ensureContextPeriodsCurrent(
   context: Context,

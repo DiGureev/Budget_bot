@@ -1,12 +1,7 @@
 import Category from "../models/Category.js";
-import {CategoryType, type ICategory} from "../types.js";
+import {CategoryType, type ICategory, type Context} from "../types.js";
 import {getNowParts, monthKey} from "../utils/dates.js";
 import {normalizeCategoryName} from "../utils/normalize.js";
-
-type Context = {
-  ownerId: number;
-  ownerType: "user" | "group";
-};
 
 export async function countActiveCategories(context: Context): Promise<number> {
   return Category.countDocuments({

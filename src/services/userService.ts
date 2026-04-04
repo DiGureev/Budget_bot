@@ -1,11 +1,6 @@
 import type {Message} from "node-telegram-bot-api";
 import User from "../models/User.js";
-import type {IUser} from "../types.js";
-
-type Context = {
-  ownerId: number;
-  ownerType: "user" | "group";
-};
+import type {IUser, Context} from "../types.js";
 
 export function getContext(msg: Message): Context {
   const isPrivate = msg.chat.type === "private";
@@ -38,7 +33,7 @@ export async function getOrCreateUser(msg: Message) {
       },
       state: {
         step: "awaiting_email",
-        context: null, // 🔥 important
+        context: null,
         payload: {},
       },
       lastSeenAt: new Date(),
@@ -69,7 +64,7 @@ export async function setUserState(
       $set: {
         state: {
           step,
-          context, // 🔥 critical fix
+          context,
           payload,
         },
       },

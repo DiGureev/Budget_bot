@@ -7,7 +7,6 @@ import {
   handleHelp,
 } from "./handlers.js";
 import {setUpUserAndBackup} from "../services/helpers/index.js";
-import {getContext} from "../services/userService.js";
 
 export function createBot(): TelegramBot {
   if (!TELEGRAM_BOT_TOKEN) {
@@ -20,8 +19,7 @@ export function createBot(): TelegramBot {
     try {
       const user = await setUpUserAndBackup(msg);
 
-      const context = getContext(msg);
-      await handleStart(bot, msg, user, context);
+      await handleStart(bot, msg, user);
     } catch (error) {
       console.error("Error handling start command:", error);
     }
@@ -31,7 +29,6 @@ export function createBot(): TelegramBot {
     try {
       await setUpUserAndBackup(msg);
 
-      const context = getContext(msg);
       await handleHelp(bot, msg);
     } catch (error) {
       console.error("Error handling help command:", error);
@@ -44,8 +41,7 @@ export function createBot(): TelegramBot {
     try {
       const user = await setUpUserAndBackup(msg);
 
-      const context = getContext(msg);
-      await handleText(bot, msg, user, context);
+      await handleText(bot, msg, user);
     } catch (error) {
       console.error("Error handling text command:", error);
     }
@@ -69,8 +65,7 @@ export function createBot(): TelegramBot {
     try {
       const user = await setUpUserAndBackup(msg);
 
-      const context = getContext(msg);
-      await handleCallback(bot, query, user, context);
+      await handleCallback(bot, query, user);
 
       await bot.answerCallbackQuery(query.id);
     } catch (error) {

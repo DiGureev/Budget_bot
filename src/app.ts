@@ -44,7 +44,7 @@ async function processMessage(msg: Message) {
   await ensureContextPeriodsCurrent(context);
 
   if (msg.text && msg.text.startsWith("/start")) {
-    await handleStart(bot, msg, user, context);
+    await handleStart(bot, msg, user);
     return;
   }
 
@@ -54,7 +54,7 @@ async function processMessage(msg: Message) {
   }
 
   if (msg.text) {
-    await handleText(bot, msg, user, context);
+    await handleText(bot, msg, user);
   }
 }
 
@@ -81,7 +81,7 @@ async function processCallback(query: CallbackQuery) {
   await ensureDailyBackup();
   await ensureContextPeriodsCurrent(context);
 
-  await handleCallback(bot, query, user, context);
+  await handleCallback(bot, query, user);
   await bot.answerCallbackQuery(query.id);
 }
 
