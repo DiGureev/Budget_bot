@@ -1,5 +1,6 @@
-import Category, { type ICategory } from '../models/Category.js';
+import Category from '../models/Category.js';
 import { getNowParts, nextMonth, monthKey } from '../utils/dates.js';
+import {ICategory} from '../types.js'
 
 export function trimArray<T>(arr: T[], limit: number): T[] {
   if (arr.length <= limit) return arr;

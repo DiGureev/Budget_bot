@@ -1,7 +1,6 @@
 import type { KeyboardButton, ReplyKeyboardMarkup } from 'node-telegram-bot-api';
-import type { ICategory } from '../models/Category.js';
-import type { IUser } from '../models/User.js';
 import { ADD_NEW_CATEGORY_MESSAGE } from './constants.js';
+import { ICategory, IUser } from '../types.js';
 
 export function getCategoryButtonLabel(category: ICategory, user: IUser): string {
   const spent = formatAmount(category.currentSpent || 0);

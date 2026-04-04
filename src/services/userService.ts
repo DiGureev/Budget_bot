@@ -1,5 +1,6 @@
 import type { Message } from 'node-telegram-bot-api';
-import User, { type IUser } from '../models/User.js';
+import User from '../models/User.js';
+import type { IUser } from '../types.js';
 
 export async function getOrCreateUser(msg: Message) {
   if (!msg.from) {

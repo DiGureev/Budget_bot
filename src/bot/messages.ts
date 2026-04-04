@@ -1,5 +1,4 @@
-import type { ICategory } from '../models/Category.js';
-import type { IUser } from '../models/User.js';
+import type { ICategory, IUser } from '../types.ts';
 
 export function formatMoney(value: number | string): string {
   const num = Number(value || 0);

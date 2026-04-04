@@ -170,52 +170,10 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
     return;
   }
 
-  if (text === ADD_NEW_CATEGORY_MESSAGE) {
-    const count = await countActiveCategories(user.telegramUserId);
-
-    if (count >= 8) {
-      await bot.sendMessage(
-        msg.chat.id,
-        ADD_CATEGORY_ERROR,
-        { parse_mode: 'HTML', ...categoryKeyboardOptions(activeCategories, user) },
-
-      );
-      return;
-    }
-
-    user.state = { step: 'awaiting_category_name', payload: {} };
-    await user.save();
-
+  if (step === 'awaiting_category_type_confirmation') {
     await bot.sendMessage(
       msg.chat.id,
-      ENTER_CATEGORY_NAME_MESSAGE,
-      {
-        parse_mode: 'HTML',
-        reply_markup: {
-          remove_keyboard: true,
-        },
-      }
-    );
-    return;
-  }
-
-  const selectedCategory = activeCategories.find(
-    (category) => text === getCategoryButtonLabel(category, user)
-  );
-  
-  if (selectedCategory) {
-    user.state = {
-      step: 'awaiting_category_amount',
-      payload: { categoryId: String(selectedCategory._id) },
-    };
-    await user.save();
-  
-    await bot.sendMessage(
-      msg.chat.id,
-      formatCategoryDetails(selectedCategory),
-      {
-        reply_markup: categoryActionsKeyboard(selectedCategory),
-      }
+      'Please confirm category type using the buttons above.'
     );
     return;
   }
@@ -449,6 +407,58 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
     return;
   }
 
+  if (!step && text === ADD_NEW_CATEGORY_MESSAGE) {
+    const count = await countActiveCategories(user.telegramUserId);
+
+    if (count >= 8) {
+      await bot.sendMessage(
+        msg.chat.id,
+        ADD_CATEGORY_ERROR,
+        { parse_mode: 'HTML', ...categoryKeyboardOptions(activeCategories, user) },
+
+      );
+      return;
+    }
+
+    user.state = { step: 'awaiting_category_name', payload: {} };
+    await user.save();
+
+    await bot.sendMessage(
+      msg.chat.id,
+      ENTER_CATEGORY_NAME_MESSAGE,
+      {
+        parse_mode: 'HTML',
+        reply_markup: {
+          remove_keyboard: true,
+        },
+      }
+    );
+    return;
+  }
+
+
+  if (!step) {const selectedCategory = activeCategories.find(
+    (category) => text === getCategoryButtonLabel(category, user)
+  );
+    
+  if (selectedCategory) {
+    user.state = {
+      step: 'awaiting_category_amount',
+      payload: { categoryId: String(selectedCategory._id) },
+    };
+    await user.save();
+  
+    await bot.sendMessage(
+      msg.chat.id,
+      formatCategoryDetails(selectedCategory),
+      {
+        reply_markup: categoryActionsKeyboard(selectedCategory),
+      }
+    );
+    return;
+  }}
+
+
   const amount = parseAmount(text);
 
   if (amount !== null) {
@@ -496,9 +506,7 @@ export async function handleText(bot: TelegramBot, msg: Message, user: UserDocum
       return;
     }
   }
-  console.log(step);
-  console.log(text);
-  console.log(amount)
+
 
   await bot.sendMessage(msg.chat.id, 'Unknown input.');
 }
