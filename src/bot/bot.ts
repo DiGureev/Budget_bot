@@ -22,7 +22,7 @@ export function createBot(): TelegramBot {
   bot.onText(/\/help/, async (msg) => {
     try { 
     const user = await setUpUserAndBackup(msg);
-    await handleHelp(bot, msg, user);
+    await handleHelp(bot, msg);
     } catch (error) {
       console.error('Error handling help command:', error);
     }

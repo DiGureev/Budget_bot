@@ -41,7 +41,7 @@ async function processMessage(msg: Message) {
   }
 
   if (msg.text && msg.text.startsWith('/help')) {
-    await handleHelp(bot, msg, user);
+    await handleHelp(bot, msg);
     return;
   }
 
