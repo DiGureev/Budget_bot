@@ -1,10 +1,10 @@
 import type {KeyboardButton, ReplyKeyboardMarkup} from "node-telegram-bot-api";
 import {ADD_NEW_CATEGORY_MESSAGE} from "./constants.js";
-import {ICategory, IUser} from "../types.js";
+import {ICategory, IUser, UserDocument} from "../types.js";
 
 export function getCategoryButtonLabel(
   category: ICategory,
-  user: IUser
+  user: IUser,
 ): string {
   const spent = formatAmount(category.currentSpent || 0);
   const budget = formatAmount(category.currentBudget || 0);
@@ -17,10 +17,32 @@ export function getCategoryButtonLabel(
   return `${category.name} ${spent}/${budget}${isDefault ? " ⭐" : ""} (${type})`;
 }
 
+const pushGrouped = (
+  categories: ICategory[],
+  user: IUser,
+): KeyboardButton[][] => {
+  const rows = [];
+  for (let i = 0; i < categories.length; i += 2) {
+    const row: KeyboardButton[] = [
+      {text: getCategoryButtonLabel(categories[i], user)},
+    ];
+
+    if (categories[i + 1]) {
+      row.push({
+        text: getCategoryButtonLabel(categories[i + 1], user),
+      });
+    }
+
+    rows.push(row);
+  }
+  return rows;
+};
+
 export function categoriesReplyKeyboard(
   categories: ICategory[],
-  user: IUser
+  user: IUser,
 ): ReplyKeyboardMarkup {
+  console.log("I am here");
   // 1. Sort:
   // - Monthly first
   // - Higher budget first
@@ -39,15 +61,13 @@ export function categoriesReplyKeyboard(
   const rows: KeyboardButton[][] = [];
 
   if (monthly.length) {
-    monthly.forEach((c) => {
-      rows.push([{text: getCategoryButtonLabel(c, user)}]);
-    });
+    const groupedRows = pushGrouped(monthly, user);
+    rows.push(...groupedRows);
   }
 
   if (annual.length) {
-    annual.forEach((c) => {
-      rows.push([{text: getCategoryButtonLabel(c, user)}]);
-    });
+    const groupedRows = pushGrouped(annual, user);
+    rows.push(...groupedRows);
   }
 
   // 4. Add "Add category" button LAST
@@ -73,7 +93,7 @@ export function categoryActionsKeyboard(category: ICategory) {
 }
 
 export function confirmCategoryTypeKeyboard(
-  selectedType: "annual" | "monthly"
+  selectedType: "annual" | "monthly",
 ) {
   const opposite = selectedType === "annual" ? "monthly" : "annual";
 

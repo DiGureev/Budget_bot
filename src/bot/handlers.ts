@@ -79,7 +79,7 @@ function categoryKeyboardOptions(categories: ICategory[], user: UserDocument) {
 
 export async function handleHelp(
   bot: TelegramBot,
-  msg: Message
+  msg: Message,
 ): Promise<void> {
   await bot.sendMessage(msg.chat.id, HELP_MESSAGE, {parse_mode: "HTML"});
 }
@@ -92,7 +92,7 @@ const resetUser = async (user: UserDocument) => {
 export async function handleStart(
   bot: TelegramBot,
   msg: Message,
-  user: UserDocument
+  user: UserDocument,
 ): Promise<void> {
   if (!user.onboarding.emailSubmitted) {
     await bot.sendMessage(msg.chat.id, WELCOME_MESSAGE, {parse_mode: "HTML"});
@@ -109,7 +109,7 @@ export async function handleStart(
   if (defaultCategoryId) {
     const defaultCat = await getCategoryById(
       defaultCategoryId,
-      user.telegramUserId
+      user.telegramUserId,
     );
     const displayName = defaultCat?.name ?? "default";
     message = `${BOT_STARTED_MESSAGE} Send the amount of spendings for default category "${displayName}".`;
@@ -140,14 +140,13 @@ export enum STEPS {
 export async function handleText(
   bot: TelegramBot,
   msg: Message,
-  user: UserDocument
+  user: UserDocument,
 ): Promise<void> {
   const text = (msg.text || "").trim();
   const step = user.state?.step;
 
   const activeCategories = await getActiveCategories(user.telegramUserId);
   const hasCategories = activeCategories.length > 0;
-  console.log(step);
   if (
     user.onboarding.completed &&
     !hasCategories &&
@@ -161,7 +160,7 @@ export async function handleText(
   }
 
   const selectedCategory = activeCategories.find(
-    (category) => text === getCategoryButtonLabel(category, user)
+    (category) => text === getCategoryButtonLabel(category, user),
   );
 
   if (selectedCategory) {
@@ -176,7 +175,7 @@ export async function handleText(
       formatCategoryDetails(selectedCategory),
       {
         reply_markup: categoryActionsKeyboard(selectedCategory),
-      }
+      },
     );
     return;
   }
@@ -270,7 +269,7 @@ export async function handleText(
         {
           parse_mode: "HTML",
           reply_markup: defaultChoiceKeyboard(String(category._id)),
-        }
+        },
       );
       return;
     }
@@ -283,7 +282,7 @@ export async function handleText(
       {
         parse_mode: "HTML",
         ...categoryKeyboardOptions(categories, user),
-      }
+      },
     );
 
     return;
@@ -304,7 +303,7 @@ export async function handleText(
       formatCategoryDetails(result.category, false),
       {
         ...categoryKeyboardOptions(categories, user),
-      }
+      },
     );
 
     return;
@@ -323,7 +322,7 @@ export async function handleText(
     await bot.sendMessage(
       msg.chat.id,
       `Category renamed to "${result.normalizedName}".`,
-      categoryKeyboardOptions(categories, user)
+      categoryKeyboardOptions(categories, user),
     );
     return;
   }
@@ -339,9 +338,6 @@ export async function handleText(
     await bot.sendMessage(
       msg.chat.id,
       `Budget updated to ${formatMoney(result.amount)}.`,
-      {
-        reply_markup: categoryActionsKeyboard(result.category),
-      }
     );
     return;
   }
@@ -359,11 +355,6 @@ export async function handleText(
       return;
     }
 
-    if (amount <= 0) {
-      await bot.sendMessage(msg.chat.id, AMOUNT_VALIDATION_ERROR);
-      return;
-    }
-
     if (!user.defaultCategoryId) {
       await bot.sendMessage(msg.chat.id, NOT_DEFAULT_CATEGORY_ERROR, {
         parse_mode: "HTML",
@@ -373,7 +364,7 @@ export async function handleText(
 
     const category = await getCategoryById(
       user.defaultCategoryId,
-      user.telegramUserId
+      user.telegramUserId,
     );
 
     if (
@@ -407,7 +398,7 @@ export async function handleText(
 export async function handleCallback(
   bot: TelegramBot,
   query: CallbackQuery,
-  user: UserDocument
+  user: UserDocument,
 ): Promise<void> {
   const data = query.data;
   if (!data || !query.message || !("chat" in query.message)) {
@@ -432,11 +423,11 @@ export async function handleCallback(
 
     await bot.editMessageReplyMarkup(
       {inline_keyboard: []},
-      {chat_id: chatId, message_id: messageId}
+      {chat_id: chatId, message_id: messageId},
     );
 
     const payloadName = String(
-      (user.state.payload as {name?: string}).name ?? ""
+      (user.state.payload as {name?: string}).name ?? "",
     );
 
     await bot.sendMessage(
@@ -454,7 +445,7 @@ export async function handleCallback(
             ],
           ],
         },
-      }
+      },
     );
     return;
   }
@@ -480,12 +471,12 @@ export async function handleCallback(
     });
 
     const budgetPayloadName = String(
-      (user.state.payload as {name?: string}).name ?? ""
+      (user.state.payload as {name?: string}).name ?? "",
     );
     await bot.sendMessage(
       chatId,
       CATEGORY_BUDGET_SET_MESSAGE(type, budgetPayloadName),
-      {parse_mode: "HTML"}
+      {parse_mode: "HTML"},
     );
     return;
   }
@@ -523,7 +514,7 @@ export async function handleCallback(
       {
         chat_id: chatId,
         message_id: messageId,
-      }
+      },
     );
 
     return;
@@ -538,7 +529,7 @@ export async function handleCallback(
     await bot.sendMessage(
       chatId,
       "👍",
-      categoryKeyboardOptions(categories, user)
+      categoryKeyboardOptions(categories, user),
     );
 
     await bot.editMessageReplyMarkup(
@@ -546,7 +537,7 @@ export async function handleCallback(
       {
         chat_id: chatId,
         message_id: messageId,
-      }
+      },
     );
 
     return;
@@ -618,7 +609,7 @@ export async function handleCallback(
 
     const isDefault = Boolean(
       user.defaultCategoryId &&
-      String(user.defaultCategoryId) === String(category._id)
+      String(user.defaultCategoryId) === String(category._id),
     );
 
     await bot.editMessageText(`Edit "${category.name}"`, {
@@ -678,7 +669,7 @@ export async function handleCallback(
     await bot.sendMessage(
       chatId,
       "💰",
-      categoryKeyboardOptions(categories, user)
+      categoryKeyboardOptions(categories, user),
     );
     return;
   }
@@ -707,13 +698,13 @@ export async function handleCallback(
       {
         chat_id: chatId,
         message_id: messageId,
-      }
+      },
     );
 
     await bot.sendMessage(
       chatId,
       "💰",
-      categoryKeyboardOptions(categories, user)
+      categoryKeyboardOptions(categories, user),
     );
     return;
   }
@@ -749,13 +740,13 @@ export async function handleCallback(
 
     await bot.editMessageText(
       CATEGORY_CONVERTED_TO_ANNUAL_MESSAGE(category.name),
-      {chat_id: chatId, message_id: messageId}
+      {chat_id: chatId, message_id: messageId},
     );
 
     await bot.sendMessage(
       chatId,
       "💰",
-      categoryKeyboardOptions(categories, user)
+      categoryKeyboardOptions(categories, user),
     );
     return;
   }
@@ -788,7 +779,7 @@ export async function handleCallback(
     await bot.sendMessage(
       chatId,
       "💰",
-      categoryKeyboardOptions(categories, user)
+      categoryKeyboardOptions(categories, user),
     );
     return;
   }
@@ -809,7 +800,7 @@ export async function handleCallback(
     await bot.sendMessage(
       chatId,
       "💰",
-      categoryKeyboardOptions(categories, user)
+      categoryKeyboardOptions(categories, user),
     );
     return;
   }
@@ -862,7 +853,7 @@ export async function handleCallback(
     await bot.sendMessage(
       chatId,
       CATEGORY_REMOVED(category.name),
-      categoryKeyboardOptions(categories, user)
+      categoryKeyboardOptions(categories, user),
     );
     return;
   }

@@ -3,7 +3,11 @@ import path from "path";
 import os from "os";
 import {createReadStream} from "fs";
 import {Dropbox} from "dropbox";
-import {DROPBOX_TOKEN} from "../config/env.js";
+import {
+  DROPBOX_APP_KEY,
+  DROPBOX_APP_SECRET,
+  DROPBOX_REFRESH_TOKEN,
+} from "../config/env.js";
 import User from "../models/User.js";
 import Category from "../models/Category.js";
 
@@ -36,11 +40,15 @@ async function createMongoDump(filePath: string): Promise<void> {
 }
 
 export async function runDropboxBackup(): Promise<{ok: boolean}> {
-  if (!DROPBOX_TOKEN) {
+  if (!DROPBOX_REFRESH_TOKEN) {
     throw new Error("DROPBOX_TOKEN is missing");
   }
 
-  const dbx = new Dropbox({accessToken: DROPBOX_TOKEN});
+  const dbx = new Dropbox({
+    clientId: DROPBOX_APP_KEY,
+    clientSecret: DROPBOX_APP_SECRET,
+    refreshToken: DROPBOX_REFRESH_TOKEN,
+  });
 
   const fileName = getBackupFileName();
   const tempFilePath = path.join(os.tmpdir(), fileName);

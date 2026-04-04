@@ -56,21 +56,21 @@ export async function createCategory({
 }
 
 export async function getActiveCategories(
-  userId: number
+  userId: number,
 ): Promise<ICategory[]> {
   return Category.find({userId, status: "active"}).sort({createdAt: 1});
 }
 
 export async function getCategoryById(
   id: string,
-  userId: number
+  userId: number,
 ): Promise<ICategory | null> {
   return Category.findOne({_id: id, userId});
 }
 
 export async function applyAmount(
   category: ICategory,
-  amount: number
+  amount: number,
 ): Promise<ICategory> {
   const {year, month} = getNowParts();
 
@@ -96,7 +96,7 @@ export async function archiveCategory(category: ICategory): Promise<ICategory> {
 
 export async function renameCategory(
   category: ICategory,
-  newName: string
+  newName: string,
 ): Promise<ICategory> {
   const normalized = normalizeCategoryName(newName);
 
@@ -119,7 +119,7 @@ export async function renameCategory(
 
 export async function updateCategoryBudget(
   category: ICategory,
-  newBudget: number
+  newBudget: number,
 ): Promise<ICategory> {
   category.currentBudget = newBudget;
   await category.save();
@@ -127,7 +127,7 @@ export async function updateCategoryBudget(
 }
 
 export async function resetCategorySpend(
-  category: ICategory
+  category: ICategory,
 ): Promise<ICategory> {
   const {year, month} = getNowParts();
 
@@ -143,12 +143,12 @@ export async function resetCategorySpend(
 }
 
 export async function convertAnnualToMonthly(
-  category: ICategory
+  category: ICategory,
 ): Promise<ICategory> {
   const {year, month} = getNowParts();
 
   category.type = "monthly";
-  category.currentSpent = 0;
+  category.currentSpent = category.currentBudget;
   category.period = {year, month};
   category.currentYearMonthlySpent = new Map();
   category.history.months = [];
