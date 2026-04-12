@@ -140,7 +140,6 @@ async function main() {
 
     const webhookUrl = `${RENDER_EXTERNAL_URL}/${WEBHOOK_SECRET_PATH}`;
     await bot.setWebHook(webhookUrl);
-    console.log(`Webhook set: ${webhookUrl}`);
   });
 }
 
