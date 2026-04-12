@@ -43,7 +43,6 @@ import {
   CATEGORY_CREATED_MESSAGE,
   MAKE_DEFAULT_CATEGORY_MESSAGE,
   DEFAULT_CATEGORY_SET_MESSAGE,
-  AMOUNT_VALIDATION_ERROR,
   CATEGORY_NOT_FOUND_ERROR,
   NOT_DEFAULT_CATEGORY_ERROR,
   HELP_MESSAGE,
@@ -71,6 +70,7 @@ import {
   submitCategoryName,
   submitEmail,
 } from "../services/helpers/index.js";
+import {resetUser} from "../utils/resetUser.js";
 
 function categoryKeyboardOptions(categories: ICategory[], user: UserDocument) {
   return {
@@ -84,11 +84,6 @@ export async function handleHelp(
 ): Promise<void> {
   await bot.sendMessage(msg.chat.id, HELP_MESSAGE, {parse_mode: "HTML"});
 }
-
-const resetUser = async (user: UserDocument) => {
-  user.state = {step: null, payload: {}};
-  await user.save();
-};
 
 export async function handleStart(
   bot: TelegramBot,
@@ -165,6 +160,8 @@ export async function handleText(
   );
 
   if (selectedCategory) {
+    await resetUser(user);
+
     user.state = {
       step: STEPS.CATEGORY_AMOUNT,
       payload: {categoryId: String(selectedCategory._id)},
@@ -217,11 +214,34 @@ export async function handleText(
       ...categoryKeyboardOptions(categories, user),
     });
 
+    await resetUser(user);
+
     return;
   }
 
   if (step === STEPS.DEFAULT_CATEGORY_CONFIRMATION) {
-    await bot.sendMessage(msg.chat.id, CATEGORY_CONFIRM_WARNING);
+    const categoryId = user.state.payload.categoryId as string;
+
+    const category = await getCategoryById(categoryId, user.telegramUserId);
+
+    if (!category) {
+      await resetUser(user);
+      await bot.sendMessage(
+        msg.chat.id,
+        "Something went wrong. Please try again.",
+      );
+      return;
+    }
+
+    await bot.sendMessage(
+      msg.chat.id,
+      `Please use the buttons below 👇\n\nMake "${category.name}" your default category?`,
+      {
+        parse_mode: "HTML",
+        reply_markup: defaultChoiceKeyboard(String(category._id)),
+      },
+    );
+
     return;
   }
 
@@ -285,6 +305,7 @@ export async function handleText(
         ...categoryKeyboardOptions(categories, user),
       },
     );
+    await resetUser(user);
 
     return;
   }
@@ -307,7 +328,7 @@ export async function handleText(
       },
     );
 
-    resetUser(user);
+    await resetUser(user);
 
     return;
   }
@@ -327,6 +348,8 @@ export async function handleText(
       `Category renamed to "${result.normalizedName}".`,
       categoryKeyboardOptions(categories, user),
     );
+
+    await resetUser(user);
     return;
   }
 
@@ -338,10 +361,16 @@ export async function handleText(
       return;
     }
 
+    const categories = await getActiveCategories(user.telegramUserId);
+
     await bot.sendMessage(
       msg.chat.id,
       `Budget updated to ${formatMoney(result.amount)}.`,
+      categoryKeyboardOptions(categories, user),
     );
+
+    await resetUser(user);
+
     return;
   }
 
@@ -502,8 +531,7 @@ export async function handleCallback(
     await setDefaultCategory(user.telegramUserId, categoryId);
 
     user.defaultCategoryId = categoryId;
-    user.state = {step: null, payload: {}};
-    await user.save();
+    await resetUser(user);
 
     const categories = await getActiveCategories(user.telegramUserId);
 
@@ -524,8 +552,7 @@ export async function handleCallback(
   }
 
   if (data.startsWith("default_no:")) {
-    user.state = {step: null, payload: {}};
-    await user.save();
+    await resetUser(user);
 
     const categories = await getActiveCategories(user.telegramUserId);
 
