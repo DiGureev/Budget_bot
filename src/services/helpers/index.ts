@@ -25,6 +25,7 @@ import {
 } from "../categoryService.js";
 import {normalizeCategoryName} from "../../utils/normalize.js";
 import {parseAmount} from "../amountParser.js";
+import {resetUser} from "../../utils/resetUser.js";
 
 export const setUpUserAndBackup = async (
   msg: Message,
@@ -55,8 +56,7 @@ export const submitEmail = async (
 
   user.onboarding.emailSubmitted = true;
   user.onboarding.completed = true;
-  user.state = {step: null, payload: {}};
-  await user.save();
+  await resetUser(user);
 
   return {ok: true};
 };
@@ -73,8 +73,7 @@ export const submitCategoryName = async (
   const count = await countActiveCategories(user.telegramUserId);
 
   if (count >= 8) {
-    user.state = {step: null, payload: {}};
-    await user.save();
+    await resetUser(user);
 
     return {ok: false, error: CATEGORIES_LIMIT_REACHED_ERROR};
   }
@@ -135,8 +134,7 @@ export const submitCategoryBudget = async (
       return {ok: true, category, type, amount};
     }
 
-    user.state = {step: null, payload: {}};
-    await user.save();
+    await resetUser(user);
 
     return {ok: true, category, type, amount};
   } catch {
@@ -202,8 +200,7 @@ export async function processRenameCategory(
     throw err; // keep unexpected errors visible
   }
 
-  user.state = {step: null, payload: {}};
-  await user.save();
+  await resetUser(user);
 
   return {ok: true, normalizedName};
 }
@@ -234,8 +231,7 @@ export async function processCategoryBudgetUpdate(
 
   await updateCategoryBudget(category, amount);
 
-  user.state = {step: null, payload: {}};
-  await user.save();
+  await resetUser(user);
 
   return {ok: true, category, amount};
 }

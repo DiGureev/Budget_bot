@@ -3,7 +3,7 @@ import {KIT_API_KEY, KIT_TAG_ID} from "../config/env.js";
 
 export async function submitEmailToKit(
   email: string,
-  user: IUser
+  user: IUser,
 ): Promise<{ok: boolean}> {
   try {
     const response = await fetch(
@@ -22,7 +22,7 @@ export async function submitEmailToKit(
             username: user.username,
           },
         }),
-      }
+      },
     );
 
     const data = await response.json();
@@ -31,8 +31,6 @@ export async function submitEmailToKit(
       console.error("KIT ERROR", data);
       return {ok: false};
     }
-
-    console.log("KIT SUCCESS", data);
 
     return {ok: true};
   } catch (error) {
