@@ -148,7 +148,7 @@ export async function convertAnnualToMonthly(
   const {year, month} = getNowParts();
 
   category.type = "monthly";
-  category.currentSpent = category.currentBudget;
+  category.currentSpent = category.currentSpent;
   category.period = {year, month};
   category.currentYearMonthlySpent = new Map();
   category.history.months = [];
