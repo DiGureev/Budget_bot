@@ -24,7 +24,7 @@ export function formatCategoryDetails(
   const remaining = budget - spent;
   const label = category.type === "annual" ? "Annual Budget" : "Monthly Budget";
 
-  return `${category.name} · ${label}: ${formatMoney(budget)}\n\nSpent: ${formatMoney(spent)}\nRemaining: ${formatMoney(remaining)}.${showButtons ? `\n\nEnter a spending for category "${category.name}" Or choose another action using the buttons below.` : ""}`;
+  return `${category.name} · ${label}: ${formatMoney(budget)}\n\nSpent: ${formatMoney(spent)}\nRemaining: ${formatMoney(remaining)}.${showButtons ? `\n\nEnter an expense for the "${category.name}" category, or choose another action using the buttons below.` : ""}`;
 }
 
 export function formatMonthlyHistory(category: ICategory): string {
