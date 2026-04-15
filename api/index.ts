@@ -17,7 +17,7 @@ import {ensureUserPeriodsCurrent} from "../src/services/rolloverService.js";
 
 const TOKEN = process.env.TELEGRAM_BOT_TOKEN!;
 const WEBHOOK_SECRET_PATH = process.env.WEBHOOK_SECRET_PATH!;
-const VERCEL_URL = process.env.VERCEL_URL!;
+const APP_BASE_URL = process.env.APP_BASE_URL!;
 
 const bot = new TelegramBot(TOKEN, {polling: false});
 const app = express();
@@ -98,8 +98,8 @@ async function processCallback(query: CallbackQuery) {
     {command: "start", description: "Start the bot"},
     {command: "help", description: "Help"},
   ]);
-  if (VERCEL_URL) {
-    await bot.setWebHook(`https://${VERCEL_URL}/${WEBHOOK_SECRET_PATH}`);
+  if (APP_BASE_URL) {
+    await bot.setWebHook(`${APP_BASE_URL}/${WEBHOOK_SECRET_PATH}`);
   }
 })();
 
