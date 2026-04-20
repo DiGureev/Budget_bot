@@ -1,11 +1,7 @@
 import Category from "../models/Category.js";
 import {getNowParts, nextMonth, monthKey} from "../utils/dates.js";
 import {ICategory} from "../types.js";
-
-export function trimArray<T>(arr: T[], limit: number): T[] {
-  if (arr.length <= limit) return arr;
-  return arr.slice(arr.length - limit);
-}
+import {trimArray} from "../utils/normalize.js";
 
 type NowParts = ReturnType<typeof getNowParts>;
 
