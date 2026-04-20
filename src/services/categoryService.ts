@@ -1,7 +1,7 @@
 import Category from "../models/Category.js";
 import {CategoryType, type ICategory} from "../types.js";
 import {getNowParts, monthKey} from "../utils/dates.js";
-import {normalizeCategoryName} from "../utils/normalize.js";
+import {normalizeCategoryName, trimArray} from "../utils/normalize.js";
 
 export async function countActiveCategories(userId: number): Promise<number> {
   return Category.countDocuments({userId, status: "active"});
@@ -146,12 +146,28 @@ export async function convertAnnualToMonthly(
   category: ICategory,
 ): Promise<ICategory> {
   const {year, month} = getNowParts();
+  const currentMonthKey = monthKey(year, month);
+
+  // Migrate currentYearMonthlySpent into history.months
+  const months: ICategory["history"]["months"] = [];
+  for (const [key, spent] of category.currentYearMonthlySpent.entries()) {
+    const [entryYear, entryMonth] = key.split("-").map(Number);
+    if (entryYear === year && entryMonth !== month) {
+      months.push({
+        year: entryYear,
+        month: entryMonth,
+        budget: category.currentBudget,
+        spent,
+      });
+    }
+  }
 
   category.type = "monthly";
-  category.currentSpent = category.currentSpent;
+  category.currentSpent =
+    category.currentYearMonthlySpent.get(currentMonthKey) ?? 0; // current month only
   category.period = {year, month};
   category.currentYearMonthlySpent = new Map();
-  category.history.months = [];
+  category.history.months = trimArray(months, 12);
 
   await category.save();
   return category;
@@ -160,23 +176,31 @@ export async function convertAnnualToMonthly(
 export async function convertMonthlyToAnnual(
   category: ICategory,
 ): Promise<void> {
-  const yearlySpent = Array.from(
-    category.currentYearMonthlySpent.values(),
-  ).reduce((sum, val) => sum + val, 0);
+  const currentYear = category.period.year;
+
+  // Migrate history.months into currentYearMonthlySpent
+  const migratedMap = new Map<string, number>();
+
+  for (const entry of category.history.months) {
+    if (entry.year === currentYear) {
+      const key = monthKey(entry.year, entry.month);
+      migratedMap.set(key, entry.spent);
+    }
+  }
+
+  // Add current active month
+  const currentMonthKey = monthKey(currentYear, category.period.month!);
+  migratedMap.set(currentMonthKey, category.currentSpent);
+
+  const yearlySpent = Array.from(migratedMap.values()).reduce(
+    (sum, val) => sum + val,
+    0,
+  );
 
   category.type = "annual";
-
-  category.period = {year: category.period.year, month: null};
-
-  category.history.years.push({
-    year: category.period.year,
-    budget: category.currentBudget,
-    spent: yearlySpent,
-  });
-
+  category.period = {year: currentYear, month: null};
   category.currentSpent = yearlySpent;
-
-  category.currentYearMonthlySpent = new Map();
+  category.currentYearMonthlySpent = migratedMap;
   category.history.months = [];
 
   await category.save();

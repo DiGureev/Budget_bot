@@ -1,11 +1,7 @@
 import Category from "../models/Category.js";
 import {getNowParts, nextMonth, monthKey} from "../utils/dates.js";
 import {ICategory} from "../types.js";
-
-export function trimArray<T>(arr: T[], limit: number): T[] {
-  if (arr.length <= limit) return arr;
-  return arr.slice(arr.length - limit);
-}
+import {trimArray} from "../utils/normalize.js";
 
 type NowParts = ReturnType<typeof getNowParts>;
 
@@ -24,7 +20,7 @@ export async function ensureUserPeriodsCurrent(userId: number): Promise<void> {
 
 export async function ensureMonthlyCategoryCurrent(
   category: ICategory,
-  now: NowParts
+  now: NowParts,
 ): Promise<void> {
   let {year, month} = category.period;
 
@@ -61,7 +57,7 @@ export async function ensureMonthlyCategoryCurrent(
 
 export async function ensureAnnualCategoryCurrent(
   category: ICategory,
-  now: NowParts
+  now: NowParts,
 ): Promise<void> {
   const currentYear = category.period.year;
 
@@ -83,8 +79,8 @@ export async function ensureAnnualCategoryCurrent(
       ? raw
       : new Map(
           Object.entries(raw ?? {}).map(
-            ([k, v]) => [k, Number(v)] as [string, number]
-          )
+            ([k, v]) => [k, Number(v)] as [string, number],
+          ),
         );
 
   const currentMonth = now.month;
