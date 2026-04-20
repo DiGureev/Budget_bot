@@ -24,7 +24,7 @@ export async function ensureUserPeriodsCurrent(userId: number): Promise<void> {
 
 export async function ensureMonthlyCategoryCurrent(
   category: ICategory,
-  now: NowParts
+  now: NowParts,
 ): Promise<void> {
   let {year, month} = category.period;
 
@@ -61,7 +61,7 @@ export async function ensureMonthlyCategoryCurrent(
 
 export async function ensureAnnualCategoryCurrent(
   category: ICategory,
-  now: NowParts
+  now: NowParts,
 ): Promise<void> {
   const currentYear = category.period.year;
 
@@ -77,25 +77,12 @@ export async function ensureAnnualCategoryCurrent(
     category.currentYearMonthlySpent = new Map();
   }
 
-  const raw = category.currentYearMonthlySpent;
-  const map: Map<string, number> =
-    raw instanceof Map
-      ? raw
-      : new Map(
-          Object.entries(raw ?? {}).map(
-            ([k, v]) => [k, Number(v)] as [string, number]
-          )
-        );
-
-  const currentMonth = now.month;
-
-  for (let m = 1; m <= currentMonth; m += 1) {
-    const key = monthKey(now.year, m);
-    if (!map.has(key)) {
-      map.set(key, 0);
+  // Clean up any phantom zero entries
+  for (const [key, spent] of category.currentYearMonthlySpent.entries()) {
+    if (spent === 0) {
+      category.currentYearMonthlySpent.delete(key);
     }
   }
 
-  category.currentYearMonthlySpent = map;
   await category.save();
 }
