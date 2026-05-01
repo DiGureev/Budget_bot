@@ -167,10 +167,7 @@ export async function convertAnnualToMonthly(
     category.currentYearMonthlySpent.get(currentMonthKey) ?? 0; // current month only
   category.period = {year, month};
   category.currentYearMonthlySpent = new Map();
-  category.history.months = trimArray(
-    months.sort((a, b) => a.month - b.month),
-    12,
-  );
+  category.history.months = trimArray(months, 12);
 
   await category.save();
   return category;
