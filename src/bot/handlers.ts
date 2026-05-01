@@ -18,7 +18,6 @@ import {
   getDefaultCategoryById,
 } from "../services/userService.js";
 import {
-  getCategoryButtonLabel,
   categoriesReplyKeyboard,
   categoryActionsKeyboard,
   defaultChoiceKeyboard,
@@ -155,9 +154,15 @@ export async function handleText(
     return;
   }
 
-  const selectedCategory = activeCategories.find(
-    (category) => text === getCategoryButtonLabel(category, user),
+  const buttonMatch = text.match(
+    /^(.+)\s+\d+(?:\.\d+)?\/\d+(?:\.\d+)?(?:\s+⭐)?\s+\((monthly|annual)\)$/,
   );
+  const selectedCategory = buttonMatch
+    ? activeCategories.find(
+        (category) =>
+          category.name === buttonMatch[1] && category.type === buttonMatch[2],
+      )
+    : undefined;
 
   if (selectedCategory) {
     await resetUser(user);
